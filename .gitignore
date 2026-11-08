@@ -71,3 +71,10 @@ logs/
 *.swp
 *.swo
 *.orig
+
+# ---------- Local source backup files ----------
+*.backup
+*.backup-*
+*.before-*
+*-backup-*
+apps/api/phase0-backup.mjs
