@@ -1,0 +1,388 @@
+﻿.my-orders-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(10, 20, 14, .58);
+  backdrop-filter: blur(5px);
+}
+
+.my-orders-panel {
+  width: min(100%, 620px);
+  height: 100%;
+  overflow-y: auto;
+  background: #fff;
+  color: #17251b;
+  box-shadow: -15px 0 50px rgba(0,0,0,.16);
+}
+
+.my-orders-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 25px 28px;
+  background: #fff;
+  border-bottom: 1px solid #e8eee9;
+}
+
+.my-orders-eyebrow {
+  color: #628b37;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.my-orders-header h2 {
+  margin: 7px 0 4px;
+  font-size: 25px;
+}
+
+.my-orders-header p,
+.my-orders-list-heading p {
+  margin: 0;
+  color: #758078;
+  font-size: 13px;
+}
+
+.my-orders-icon-button,
+.my-orders-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #e2e9e3;
+  border-radius: 10px;
+  background: #fff;
+  color: #26392b;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.my-orders-content {
+  padding: 23px 28px 35px;
+}
+
+.my-orders-error {
+  margin: 15px 28px 0;
+  padding: 12px;
+  border-radius: 9px;
+  color: #a32929;
+  background: #fff0f0;
+  font-size: 13px;
+}
+
+.my-orders-list-heading,
+.my-order-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.my-orders-list-heading h3,
+.my-order-section h3 {
+  margin: 0 0 5px;
+  font-size: 17px;
+}
+
+.my-orders-refresh {
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.my-orders-refresh:disabled {
+  opacity: .55;
+  cursor: wait;
+}
+
+.my-orders-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.my-order-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px;
+  text-align: left;
+  border: 1px solid #e7ede7;
+  border-radius: 14px;
+  background: #fff;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color .2s, transform .2s;
+}
+
+.my-order-card:hover {
+  border-color: #8eb85a;
+  transform: translateY(-1px);
+}
+
+.my-order-card-icon {
+  display: grid;
+  place-items: center;
+  width: 43px;
+  height: 43px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: #eff7e9;
+  color: #54852e;
+}
+
+.my-order-card-main {
+  display: grid;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.my-order-card-main small,
+.my-order-item small {
+  color: #818b83;
+  font-size: 12px;
+}
+
+.my-order-card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-order-status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 30px;
+  color: #426e28;
+  background: #edf7e7;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.my-order-status.cancelled {
+  color: #a52e2e;
+  background: #fff0f0;
+}
+
+.my-orders-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 65px 15px;
+  color: #758078;
+  text-align: center;
+}
+
+.my-orders-empty h3,
+.my-orders-empty p {
+  margin: 0;
+}
+
+.my-orders-back {
+  border: 0;
+  background: transparent;
+  color: #568238;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 20px;
+}
+
+.my-order-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid #e7ede7;
+  border-radius: 13px;
+  background: #f9fbf8;
+}
+
+.my-order-summary div {
+  display: grid;
+  gap: 5px;
+}
+
+.my-order-summary div span {
+  color: #89938a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.my-order-summary div strong {
+  font-size: 16px;
+}
+
+.my-order-summary small {
+  color: #78837a;
+}
+
+.my-order-section {
+  margin-top: 25px;
+  padding-bottom: 21px;
+  border-bottom: 1px solid #edf0ed;
+}
+
+.my-order-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-order-timeline {
+  display: grid;
+  gap: 0;
+  margin-top: 19px;
+}
+
+.my-order-step {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  min-height: 59px;
+  color: #a0aaa1;
+}
+
+.my-order-step:not(:last-child)::before {
+  position: absolute;
+  content: '';
+  width: 2px;
+  top: 23px;
+  bottom: -1px;
+  left: 10px;
+  background: #e6ebe6;
+}
+
+.my-order-step.completed {
+  color: #548438;
+}
+
+.my-order-step.completed:not(:last-child)::before {
+  background: #a9ca8c;
+}
+
+.my-order-step-marker {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  background: #fff;
+}
+
+.my-order-step div:last-child {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.my-order-step strong {
+  font-size: 13px;
+}
+
+.my-order-step small {
+  color: #818b83;
+  font-size: 11px;
+}
+
+.my-order-item,
+.my-order-total > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.my-order-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.my-order-item > strong,
+.my-order-total strong {
+  font-size: 13px;
+}
+
+.my-order-address,
+.my-orders-muted {
+  color: #758078;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.my-order-total {
+  margin-top: 18px;
+}
+
+.my-order-total > div span {
+  color: #758078;
+  font-size: 13px;
+}
+
+.my-order-total .my-order-grand-total {
+  margin: 5px 0;
+  padding: 14px 0;
+  border-top: 1px dashed #dce5dc;
+  border-bottom: 1px dashed #dce5dc;
+}
+
+.my-order-grand-total strong {
+  color: #315e23;
+  font-size: 19px;
+}
+
+.my-order-cancel-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+  padding: 13px;
+  border: 1px solid #f0caca;
+  border-radius: 11px;
+  background: #fff5f5;
+  color: #ad3030;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.my-order-cancel-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
+.my-order-cancelled {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 15px;
+  border-radius: 11px;
+  color: #a52e2e;
+  background: #fff2f2;
+}
+
+.my-order-cancelled p {
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .my-orders-panel {
+    width: 100%;
+  }
+
+  .my-orders-header,
+  .my-orders-content {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+}

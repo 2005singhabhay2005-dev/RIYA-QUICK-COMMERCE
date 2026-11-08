@@ -1,0 +1,1120 @@
+﻿RIYA QUICK COMMERCE - API ROUTES
+
+
+========== FILE: C:\Users\2005s\OneDrive\Desktop\PROJECT\RIYA-QUICK-COMMERCE\apps\api\src\routes\admin.js ==========
+import { Router } from "express";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+import db from "../database.js";
+import { requireAdmin } from "../middleware/auth.js";
+
+const router = Router();
+
+/* ---------------- HELPERS ---------------- */
+
+function slugify(value) {
+  return String(value)
+    .normalize("NFKD")
+    .toLowerCase()
+    .trim()
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function audit(adminId, action, type, id, details = "") {
+  db.prepare(`
+    INSERT INTO admin_audit_logs
+    (admin_id, action, entity_type, entity_id, details)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(adminId, action, type, id ?? null, details);
+}
+
+function validText(value, max, field) {
+  if (
+    typeof value !== "string" ||
+    !value.trim() ||
+    value.trim().length > max
+  ) {
+    throw new Error(`${field} is required and must be under ${max} characters`);
+  }
+
+  return value.trim();
+}
+
+function validMoney(value, field, nullable = false) {
+  if (
+    nullable &&
+    (value === null || value === "" || value === undefined)
+  ) {
+    return null;
+  }
+
+  const number = Number(value);
+
+  if (
+    !Number.isFinite(number) ||
+    number < 0 ||
+    number > 100000000
+  ) {
+    throw new Error(`${field} must be a valid non-negative amount`);
+  }
+
+  return number;
+}
+
+function validStock(value) {
+  const number = Number(value);
+
+  if (
+    !Number.isInteger(number) ||
+    number < 0 ||
+    number > 100000000
+  ) {
+    throw new Error("Stock must be a non-negative whole number");
+  }
+
+  return number;
+}
+
+function sendError(res, error) {
+  const message = error?.message || "Request failed";
+
+  if (message.includes("UNIQUE constraint failed")) {
+    return res.status(409).json({
+      success: false,
+      message: "A record with this name, slug, or SKU already exists"
+    });
+  }
+
+  return res.status(400).json({
+    success: false,
+    message
+  });
+}
+
+const productSelect = `
+  SELECT
+    p.id,
+    p.name,
+    p.slug,
+    p.description,
+    p.category_id AS categoryId,
+    p.price,
+    p.original_price AS originalPrice,
+    p.stock,
+    p.image_url AS imageUrl,
+    p.sku,
+    p.is_active AS isActive,
+    p.created_at AS createdAt,
+    p.updated_at AS updatedAt,
+    c.name AS category,
+    c.slug AS categorySlug
+  FROM products p
+  LEFT JOIN categories c ON c.id = p.category_id
+`;
+
+/* ---------------- ADMIN LOGIN ---------------- */
+
+router.post("/login", (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const password = String(req.body?.password || "");
+
+  if (!email || !password || password.length > 200) {
+    return res.status(400).json({
+      success: false,
+      message: "Email and password are required"
+    });
+  }
+
+  const admin = db.prepare(`
+    SELECT *
+    FROM admin_users
+    WHERE email = ? AND is_active = 1
+  `).get(email);
+
+  if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email or password"
+    });
+  }
+
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret || secret.length < 32) {
+    return res.status(500).json({
+      success: false,
+      message: "JWT_SECRET must contain at least 32 characters"
+    });
+  }
+
+  const token = jwt.sign(
+    { role: admin.role },
+    secret,
+    {
+      subject: String(admin.id),
+      issuer: "riya-quick-commerce",
+      expiresIn: "8h"
+    }
+  );
+
+  res.json({
+    success: true,
+    data: {
+      token,
+      admin: {
+        id: admin.id,
+        email: admin.email,
+        role: admin.role
+      }
+    }
+  });
+});
+
+/* All routes below require authentication */
+router.use(requireAdmin);
+
+/* ---------------- ADMIN PROFILE ---------------- */
+
+router.get("/me", (req, res) => {
+  res.json({
+    success: true,
+    data: req.admin
+  });
+});
+
+/* ---------------- DASHBOARD ---------------- */
+
+router.get("/dashboard", (req, res) => {
+  const products = db.prepare(`
+    SELECT
+      COUNT(*) AS total,
+      SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN is_active = 1 AND stock <= 5 THEN 1 ELSE 0 END) AS lowStock,
+      SUM(CASE WHEN is_active = 1 AND stock = 0 THEN 1 ELSE 0 END) AS outOfStock
+    FROM products
+  `).get();
+
+  const categories = db.prepare(`
+    SELECT COUNT(*) AS total FROM categories
+  `).get().total;
+
+  const recentLogs = db.prepare(`
+    SELECT
+      l.id,
+      l.product_id AS productId,
+      p.name AS productName,
+      l.change_amount AS changeAmount,
+      l.previous_stock AS previousStock,
+      l.new_stock AS newStock,
+      l.reason,
+      l.created_at AS createdAt
+    FROM inventory_logs l
+    JOIN products p ON p.id = l.product_id
+    ORDER BY l.id DESC
+    LIMIT 8
+  `).all();
+
+  res.json({
+    success: true,
+    data: {
+      products,
+      categories,
+      recentLogs
+    }
+  });
+});
+
+/* ---------------- PRODUCT LIST ---------------- */
+
+router.get("/products", (req, res) => {
+  const search = String(req.query.search || "").trim().slice(0, 100);
+  const status = String(req.query.status || "all");
+
+  const page = Math.max(
+    1,
+    Number.parseInt(req.query.page, 10) || 1
+  );
+
+  const limit = Math.min(
+    100,
+    Math.max(1, Number.parseInt(req.query.limit, 10) || 50)
+  );
+
+  const conditions = [];
+  const params = [];
+
+  if (status === "active") conditions.push("p.is_active = 1");
+  if (status === "inactive") conditions.push("p.is_active = 0");
+
+  if (search) {
+    conditions.push(
+      "(p.name LIKE ? OR p.sku LIKE ? OR p.description LIKE ?)"
+    );
+
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  const where = conditions.length
+    ? `WHERE ${conditions.join(" AND ")}`
+    : "";
+
+  const total = db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM products p
+    ${where}
+  `).get(...params).total;
+
+  const data = db.prepare(`
+    ${productSelect}
+    ${where}
+    ORDER BY p.id DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, (page - 1) * limit);
+
+  res.json({
+    success: true,
+    data,
+    total,
+    page,
+    limit
+  });
+});
+
+/* ---------------- ADD PRODUCT ---------------- */
+
+router.post("/products", (req, res) => {
+  try {
+    const body = req.body || {};
+
+    const name = validText(body.name, 150, "Product name");
+
+    const description =
+      typeof body.description === "string"
+        ? body.description.trim().slice(0, 2000)
+        : "";
+
+    const categoryId = Number(body.categoryId);
+
+    const categoryExists = db.prepare(`
+      SELECT id FROM categories WHERE id = ?
+    `).get(categoryId);
+
+    if (!Number.isInteger(categoryId) || !categoryExists) {
+      throw new Error("Select a valid category");
+    }
+
+    const price = validMoney(body.price, "Price");
+    const originalPrice = validMoney(
+      body.originalPrice,
+      "MRP",
+      true
+    );
+
+    const stock = validStock(body.stock ?? 0);
+
+    const sku = body.sku
+      ? validText(body.sku, 80, "SKU")
+      : null;
+
+    const imageUrl =
+      typeof body.imageUrl === "string"
+        ? body.imageUrl.trim().slice(0, 1000)
+        : "";
+
+    if (imageUrl && !/^https?:\/\/\S+$/i.test(imageUrl)) {
+      throw new Error("Image URL must start with http:// or https://");
+    }
+
+    if (originalPrice !== null && originalPrice < price) {
+      throw new Error("MRP cannot be lower than selling price");
+    }
+
+    const slug = slugify(name);
+
+    if (!slug) {
+      throw new Error("Invalid product name");
+    }
+
+    const transaction = db.transaction(() => {
+      const result = db.prepare(`
+        INSERT INTO products
+        (
+          name,
+          slug,
+          description,
+          category_id,
+          price,
+          original_price,
+          stock,
+          image_url,
+          sku
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        name,
+        slug,
+        description,
+        categoryId,
+        price,
+        originalPrice,
+        stock,
+        imageUrl,
+        sku
+      );
+
+      if (stock > 0) {
+        db.prepare(`
+          INSERT INTO inventory_logs
+          (
+            product_id,
+            change_amount,
+            previous_stock,
+            new_stock,
+            reason
+          )
+          VALUES (?, ?, 0, ?, 'Initial stock')
+        `).run(result.lastInsertRowid, stock, stock);
+      }
+
+      audit(
+        req.admin.id,
+        "create",
+        "product",
+        result.lastInsertRowid,
+        name
+      );
+
+      return result.lastInsertRowid;
+    });
+
+    const id = transaction();
+
+    const product = db.prepare(`
+      ${productSelect}
+      WHERE p.id = ?
+    `).get(id);
+
+    res.status(201).json({
+      success: true,
+      data: product
+    });
+
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+/* ---------------- UPDATE PRODUCT ---------------- */
+
+router.put("/products/:id", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id < 1) {
+      throw new Error("Invalid product ID");
+    }
+
+    const current = db.prepare(`
+      SELECT * FROM products WHERE id = ?
+    `).get(id);
+
+    if (!current) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found"
+      });
+    }
+
+    const body = req.body || {};
+
+    const name = validText(body.name, 150, "Product name");
+
+    const description =
+      typeof body.description === "string"
+        ? body.description.trim().slice(0, 2000)
+        : "";
+
+    const categoryId = Number(body.categoryId);
+
+    if (
+      !Number.isInteger(categoryId) ||
+      !db.prepare("SELECT id FROM categories WHERE id = ?").get(categoryId)
+    ) {
+      throw new Error("Select a valid category");
+    }
+
+    const price = validMoney(body.price, "Price");
+
+    const originalPrice = validMoney(
+      body.originalPrice,
+      "MRP",
+      true
+    );
+
+    const sku = body.sku
+      ? validText(body.sku, 80, "SKU")
+      : null;
+
+    const imageUrl =
+      typeof body.imageUrl === "string"
+        ? body.imageUrl.trim().slice(0, 1000)
+        : "";
+
+    if (imageUrl && !/^https?:\/\/\S+$/i.test(imageUrl)) {
+      throw new Error("Invalid image URL");
+    }
+
+    if (originalPrice !== null && originalPrice < price) {
+      throw new Error("MRP cannot be lower than selling price");
+    }
+
+    db.prepare(`
+      UPDATE products
+      SET
+        name = ?,
+        slug = ?,
+        description = ?,
+        category_id = ?,
+        price = ?,
+        original_price = ?,
+        image_url = ?,
+        sku = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      name,
+      slugify(name),
+      description,
+      categoryId,
+      price,
+      originalPrice,
+      imageUrl,
+      sku,
+      id
+    );
+
+    audit(req.admin.id, "update", "product", id, name);
+
+    const product = db.prepare(`
+      ${productSelect}
+      WHERE p.id = ?
+    `).get(id);
+
+    res.json({
+      success: true,
+      data: product
+    });
+
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+/* ---------------- ACTIVATE / DEACTIVATE ---------------- */
+
+router.patch("/products/:id/status", (req, res) => {
+  const id = Number(req.params.id);
+  const active = req.body?.isActive;
+
+  if (
+    !Number.isInteger(id) ||
+    id < 1 ||
+    typeof active !== "boolean"
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid product ID and isActive boolean are required"
+    });
+  }
+
+  const result = db.prepare(`
+    UPDATE products
+    SET is_active = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(active ? 1 : 0, id);
+
+  if (!result.changes) {
+    return res.status(404).json({
+      success: false,
+      message: "Product not found"
+    });
+  }
+
+  audit(
+    req.admin.id,
+    active ? "activate" : "deactivate",
+    "product",
+    id
+  );
+
+  res.json({
+    success: true,
+    message: active ? "Product activated" : "Product deactivated"
+  });
+});
+
+/* ---------------- STOCK UPDATE ---------------- */
+
+router.patch("/products/:id/stock", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id < 1) {
+      throw new Error("Invalid product ID");
+    }
+
+    const stock = validStock(req.body?.stock);
+
+    const reason = validText(
+      String(req.body?.reason || "Manual stock update"),
+      200,
+      "Reason"
+    );
+
+    const transaction = db.transaction(() => {
+      const product = db.prepare(`
+        SELECT id, stock
+        FROM products
+        WHERE id = ?
+      `).get(id);
+
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      const change = stock - product.stock;
+
+      db.prepare(`
+        UPDATE products
+        SET stock = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(stock, id);
+
+      db.prepare(`
+        INSERT INTO inventory_logs
+        (
+          product_id,
+          change_amount,
+          previous_stock,
+          new_stock,
+          reason
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        id,
+        change,
+        product.stock,
+        stock,
+        reason
+      );
+
+      audit(
+        req.admin.id,
+        "stock_update",
+        "product",
+        id,
+        `${product.stock} -> ${stock}: ${reason}`
+      );
+
+      return {
+        previousStock: product.stock,
+        newStock: stock,
+        changeAmount: change
+      };
+    });
+
+    res.json({
+      success: true,
+      data: transaction()
+    });
+
+  } catch (error) {
+    const status = error.message === "Product not found" ? 404 : 400;
+
+    res.status(status).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+/* ---------------- CATEGORY LIST ---------------- */
+
+router.get("/categories", (req, res) => {
+  const data = db.prepare(`
+    SELECT
+      c.id,
+      c.name,
+      c.slug,
+      c.description,
+      COUNT(p.id) AS productCount
+    FROM categories c
+    LEFT JOIN products p ON p.category_id = c.id
+    GROUP BY c.id
+    ORDER BY c.name
+  `).all();
+
+  res.json({
+    success: true,
+    data
+  });
+});
+
+/* ---------------- ADD CATEGORY ---------------- */
+
+router.post("/categories", (req, res) => {
+  try {
+    const name = validText(req.body?.name, 100, "Category name");
+
+    const description =
+      typeof req.body?.description === "string"
+        ? req.body.description.trim().slice(0, 500)
+        : "";
+
+    const slug = slugify(name);
+
+    if (!slug) {
+      throw new Error("Invalid category name");
+    }
+
+    const result = db.prepare(`
+      INSERT INTO categories (name, slug, description)
+      VALUES (?, ?, ?)
+    `).run(name, slug, description);
+
+    audit(req.admin.id, "create", "category", result.lastInsertRowid, name);
+
+    res.status(201).json({
+      success: true,
+      data: db.prepare(`
+        SELECT * FROM categories WHERE id = ?
+      `).get(result.lastInsertRowid)
+    });
+
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+/* ---------------- UPDATE CATEGORY ---------------- */
+
+router.put("/categories/:id", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id < 1) {
+      throw new Error("Invalid category ID");
+    }
+
+    const name = validText(req.body?.name, 100, "Category name");
+
+    const description =
+      typeof req.body?.description === "string"
+        ? req.body.description.trim().slice(0, 500)
+        : "";
+
+    const result = db.prepare(`
+      UPDATE categories
+      SET name = ?, slug = ?, description = ?
+      WHERE id = ?
+    `).run(name, slugify(name), description, id);
+
+    if (!result.changes) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found"
+      });
+    }
+
+    audit(req.admin.id, "update", "category", id, name);
+
+    res.json({
+      success: true,
+      data: db.prepare(`
+        SELECT * FROM categories WHERE id = ?
+      `).get(id)
+    });
+
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+/* ---------------- INVENTORY HISTORY ---------------- */
+
+router.get("/inventory/logs", (req, res) => {
+  const limit = Math.min(
+    200,
+    Math.max(1, Number.parseInt(req.query.limit, 10) || 50)
+  );
+
+  const data = db.prepare(`
+    SELECT
+      l.id,
+      l.product_id AS productId,
+      p.name AS productName,
+      p.sku,
+      l.change_amount AS changeAmount,
+      l.previous_stock AS previousStock,
+      l.new_stock AS newStock,
+      l.reason,
+      l.created_at AS createdAt
+    FROM inventory_logs l
+    JOIN products p ON p.id = l.product_id
+    ORDER BY l.id DESC
+    LIMIT ?
+  `).all(limit);
+
+  res.json({
+    success: true,
+    data
+  });
+});
+
+/* ---------------- ADMIN ACTIVITY HISTORY ---------------- */
+
+router.get("/audit-logs", (req, res) => {
+  const limit = Math.min(
+    200,
+    Math.max(1, Number.parseInt(req.query.limit, 10) || 50)
+  );
+
+  const data = db.prepare(`
+    SELECT
+      a.id,
+      a.action,
+      a.entity_type AS entityType,
+      a.entity_id AS entityId,
+      a.details,
+      a.created_at AS createdAt,
+      u.email AS adminEmail
+    FROM admin_audit_logs a
+    LEFT JOIN admin_users u ON u.id = a.admin_id
+    ORDER BY a.id DESC
+    LIMIT ?
+  `).all(limit);
+
+  res.json({
+    success: true,
+    data
+  });
+});
+
+export default router;
+
+
+========== FILE: C:\Users\2005s\OneDrive\Desktop\PROJECT\RIYA-QUICK-COMMERCE\apps\api\src\routes\orders.js ==========
+
+import { Router } from "express";
+import db from "../database.js";
+import { requireAdmin } from "../middleware/auth.js";
+
+const router = Router();
+
+const STATUSES = [
+  "Placed",
+  "Confirmed",
+  "Packed",
+  "Ready for Dispatch",
+  "Out for Delivery",
+  "Delivered",
+  "Cancelled"
+];
+
+const NEXT_STATUS = {
+  "Placed": ["Confirmed"],
+  "Confirmed": ["Packed"],
+  "Packed": ["Ready for Dispatch"],
+  "Ready for Dispatch": ["Out for Delivery"],
+  "Out for Delivery": ["Delivered"],
+  "Delivered": [],
+  "Cancelled": []
+};
+
+router.use(requireAdmin);
+
+// GET /api/admin/orders
+router.get("/", (req, res) => {
+  try {
+    const {
+      search = "",
+      status = "",
+      page = "1",
+      limit = "20"
+    } = req.query;
+
+    const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Number.parseInt(limit, 10) || 20)
+    );
+
+    const conditions = [];
+    const params = [];
+
+    if (status && STATUSES.includes(status)) {
+      conditions.push("o.status = ?");
+      params.push(status);
+    }
+
+    if (String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      conditions.push(`(
+        o.order_number LIKE ?
+        OR o.customer_name LIKE ?
+        OR o.customer_phone LIKE ?
+        OR o.customer_email LIKE ?
+      )`);
+      params.push(term, term, term, term);
+    }
+
+    const where = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const total = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM orders o
+      ${where}
+    `).get(...params).count;
+
+    const orders = db.prepare(`
+      SELECT
+        o.id,
+        o.order_number,
+        o.customer_name,
+        o.customer_phone,
+        o.delivery_city,
+        o.total_amount,
+        o.payment_method,
+        o.payment_status,
+        o.status,
+        o.created_at,
+        COUNT(oi.id) AS item_count
+      FROM orders o
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      ${where}
+      GROUP BY o.id
+      ORDER BY o.created_at DESC, o.id DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, pageSize, (currentPage - 1) * pageSize);
+
+    res.json({
+      success: true,
+      data: orders,
+      pagination: {
+        page: currentPage,
+        limit: pageSize,
+        total,
+        pages: Math.ceil(total / pageSize)
+      }
+    });
+  } catch (error) {
+    console.error("Orders list error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to load orders"
+    });
+  }
+});
+
+// GET /api/admin/orders/:id
+router.get("/:id", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID"
+      });
+    }
+
+    const order = db.prepare(`
+      SELECT *
+      FROM orders
+      WHERE id = ?
+    `).get(id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    const items = db.prepare(`
+      SELECT
+        id,
+        product_id,
+        product_name,
+        sku,
+        quantity,
+        unit_price,
+        line_total
+      FROM order_items
+      WHERE order_id = ?
+      ORDER BY id
+    `).all(id);
+
+    const events = db.prepare(`
+      SELECT
+        e.id,
+        e.old_status,
+        e.new_status,
+        e.note,
+        e.created_at,
+        a.email AS changed_by_email
+      FROM order_events e
+      LEFT JOIN admin_users a ON a.id = e.changed_by
+      WHERE e.order_id = ?
+      ORDER BY e.created_at DESC, e.id DESC
+    `).all(id);
+
+    res.json({
+      success: true,
+      data: {
+        ...order,
+        items,
+        events
+      }
+    });
+  } catch (error) {
+    console.error("Order detail error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to load order details"
+    });
+  }
+});
+
+// PATCH /api/admin/orders/:id/status
+router.patch("/:id/status", (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { status, note = "", cancellation_reason = "" } = req.body || {};
+
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order ID"
+      });
+    }
+
+    if (!STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid order status"
+      });
+    }
+
+    const updateOrder = db.transaction(() => {
+      const order = db.prepare(`
+        SELECT id, status
+        FROM orders
+        WHERE id = ?
+      `).get(id);
+
+      if (!order) {
+        return { error: "NOT_FOUND" };
+      }
+
+      const oldStatus = order.status;
+
+      if (
+        status === "Cancelled" &&
+        ["Placed", "Confirmed", "Packed", "Ready for Dispatch"].includes(oldStatus)
+      ) {
+        if (!String(cancellation_reason).trim()) {
+          return { error: "CANCELLATION_REASON_REQUIRED" };
+        }
+      } else if (!(NEXT_STATUS[oldStatus] || []).includes(status)) {
+        return {
+          error: "INVALID_TRANSITION",
+          current: oldStatus
+        };
+      }
+
+      const reason = status === "Cancelled"
+        ? String(cancellation_reason).trim().slice(0, 500)
+        : String(note).trim().slice(0, 500);
+
+      db.prepare(`
+        UPDATE orders
+        SET
+          status = ?,
+          cancellation_reason = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        status,
+        status === "Cancelled" ? reason : "",
+        id
+      );
+
+      db.prepare(`
+        INSERT INTO order_events (
+          order_id,
+          old_status,
+          new_status,
+          note,
+          changed_by
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        id,
+        oldStatus,
+        status,
+        reason,
+        req.admin.id
+      );
+
+      return {
+        success: true,
+        old_status: oldStatus,
+        new_status: status
+      };
+    });
+
+    const result = updateOrder();
+
+    if (result.error === "NOT_FOUND") {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    if (result.error === "CANCELLATION_REASON_REQUIRED") {
+      return res.status(400).json({
+        success: false,
+        message: "Cancellation reason is required"
+      });
+    }
+
+    if (result.error === "INVALID_TRANSITION") {
+      return res.status(409).json({
+        success: false,
+        message: `Cannot change order from ${result.current} to ${status}`
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Order status updated",
+      data: result
+    });
+  } catch (error) {
+    console.error("Order status update error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Unable to update order status"
+    });
+  }
+});
+
+export default router;
+

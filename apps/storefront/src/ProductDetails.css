@@ -1,0 +1,435 @@
+
+.product-details-page {
+  min-height: 100vh;
+  background: #f8faf5;
+  color: #20251f;
+}
+
+.pd-header {
+  height: 76px;
+  padding: 0 max(5%, calc((100% - 1200px)/2));
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e9eee6;
+}
+
+.pd-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #16883d;
+  font-weight: 900;
+  text-decoration: none;
+  font-size: 20px;
+}
+
+.pd-brand small {
+  display: block;
+  color: #727b70;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.pd-logo {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  border-radius: 12px;
+  color: white;
+  background: #16883d;
+}
+
+.pd-back, .pd-status button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 16px;
+  background: #e8f7e9;
+  color: #08652b;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.pd-container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 30px 22px 80px;
+}
+
+.pd-breadcrumb {
+  color: #727b70;
+  font-size: 13px;
+  margin-bottom: 25px;
+}
+
+.pd-breadcrumb a {
+  color: #16883d;
+  text-decoration: none;
+}
+
+.pd-product-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 55px;
+  align-items: start;
+  background: white;
+  padding: 32px;
+  border: 1px solid #e9eee6;
+  border-radius: 22px;
+}
+
+.pd-main-image {
+  height: 430px;
+  position: relative;
+  background: #f8faf5;
+  border-radius: 17px;
+  overflow: hidden;
+}
+
+.pd-main-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 20px;
+}
+
+.pd-discount {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: #16883d;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 800;
+}
+
+.pd-thumbnails {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.pd-thumbnails button {
+  width: 75px;
+  height: 75px;
+  border: 2px solid #e9eee6;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: white;
+}
+
+.pd-thumbnails button.active {
+  border-color: #16883d;
+}
+
+.pd-thumbnails img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pd-category {
+  color: #16883d;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.pd-information h1 {
+  font-size: clamp(26px, 3vw, 39px);
+  line-height: 1.2;
+  margin: 13px 0;
+}
+
+.pd-description {
+  color: #727b70;
+  line-height: 1.7;
+}
+
+.pd-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0;
+  color: #e5a900;
+}
+
+.pd-rating span {
+  color: #727b70;
+  font-size: 13px;
+}
+
+.pd-price {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pd-price strong {
+  font-size: 34px;
+  color: #16883d;
+}
+
+.pd-price del {
+  color: #8b9389;
+}
+
+.pd-stock {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pd-stock.available {
+  color: #16883d;
+}
+
+.pd-stock.unavailable {
+  color: #c33;
+}
+
+.pd-actions {
+  display: flex;
+  gap: 13px;
+  margin: 25px 0;
+}
+
+.pd-quantity {
+  display: flex;
+  align-items: center;
+  border: 1px solid #e9eee6;
+  border-radius: 10px;
+  gap: 15px;
+  padding: 8px;
+}
+
+.pd-quantity button {
+  border: 0;
+  background: transparent;
+  padding: 5px;
+  cursor: pointer;
+}
+
+.pd-quantity button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+
+.pd-add-button {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 11px;
+  background: #16883d;
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 14px;
+}
+
+.pd-add-button:disabled {
+  background: #999;
+  cursor: not-allowed;
+}
+
+.pd-benefits {
+  display: grid;
+  gap: 13px;
+  color: #59645a;
+  font-size: 13px;
+}
+
+.pd-benefits div {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.pd-benefits svg {
+  width: 19px;
+  color: #16883d;
+}
+
+.pd-section {
+  margin-top: 35px;
+  background: white;
+  border: 1px solid #e9eee6;
+  border-radius: 18px;
+  padding: 28px;
+}
+
+.pd-section h2 {
+  font-size: 23px;
+  margin-bottom: 20px;
+}
+
+.pd-specifications {
+  border: 1px solid #e9eee6;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pd-specifications div {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 15px;
+  padding: 15px;
+  border-bottom: 1px solid #e9eee6;
+}
+
+.pd-specifications div:last-child {
+  border-bottom: 0;
+}
+
+.pd-specifications div:nth-child(odd) {
+  background: #f8faf5;
+}
+
+.pd-muted {
+  color: #727b70;
+}
+
+.pd-review-summary {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.pd-review-summary strong {
+  color: #16883d;
+  font-size: 28px;
+}
+
+.pd-reviews {
+  display: grid;
+  gap: 15px;
+}
+
+.pd-reviews article {
+  padding: 18px;
+  border: 1px solid #e9eee6;
+  border-radius: 12px;
+}
+
+.pd-review-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pd-review-heading span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #d49a00;
+}
+
+.pd-reviews h3 {
+  margin: 12px 0 7px;
+}
+
+.pd-reviews p {
+  color: #727b70;
+  line-height: 1.6;
+}
+
+.pd-admin-reply {
+  margin-top: 15px;
+  padding: 14px;
+  background: #e8f7e9;
+  border-radius: 10px;
+}
+
+.pd-admin-reply strong {
+  color: #08652b;
+}
+
+.pd-recommendations {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 17px;
+}
+
+.pd-recommendations a {
+  text-decoration: none;
+  color: #20251f;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #e9eee6;
+  border-radius: 13px;
+}
+
+.pd-recommendations img {
+  width: 100%;
+  height: 150px;
+  object-fit: contain;
+  background: #f8faf5;
+  border-radius: 9px;
+}
+
+.pd-recommendations span {
+  color: #16883d;
+  font-weight: 800;
+}
+
+.pd-status {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 25px;
+}
+
+@media (max-width: 760px) {
+  .pd-container {
+    padding: 20px 13px 50px;
+  }
+
+  .pd-product-layout {
+    grid-template-columns: 1fr;
+    gap: 25px;
+    padding: 17px;
+  }
+
+  .pd-main-image {
+    height: 300px;
+  }
+
+  .pd-section {
+    padding: 19px;
+  }
+
+  .pd-recommendations {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .pd-recommendations img {
+    height: 120px;
+  }
+
+  .pd-specifications div {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pd-actions {
+    flex-wrap: wrap;
+  }
+
+  .pd-add-button {
+    min-height: 48px;
+  }
+}

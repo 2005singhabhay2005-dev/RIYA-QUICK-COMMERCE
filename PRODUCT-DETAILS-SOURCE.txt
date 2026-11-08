@@ -1,0 +1,6462 @@
+﻿RIYA QUICK COMMERCE - PRODUCT DETAILS SOURCE FILES
+
+
+========== FILE: apps\storefront\src\App.tsx ==========
+
+import { useEffect, useMemo, useState } from 'react'
+import { getProducts, type ApiProduct } from './services/api'
+import {
+  Search, MapPin, ShoppingCart, UserRound, ChevronDown,
+  ArrowRight, Plus, Minus, Heart, Zap, ShieldCheck,
+  Truck, Headphones, X, Menu, Sparkles, Star, Package,
+  ArrowUpRight, Tag, ShoppingBag, RefreshCw
+} from 'lucide-react'
+
+type Product = {
+  id: number
+  name: string
+  category: string
+  description: string
+  price: number
+  mrp: number
+  unit: string
+  image: string
+  tag?: string
+  rating: number
+}
+
+const categories = [
+  { name: 'All', icon: '🛍️', color: '#FFF1C2' },
+  { name: 'Grocery', icon: '🥑', color: '#E4F5E6' },
+  { name: 'Fruits', icon: '🍎', color: '#FFE6DF' },
+  { name: 'Electronics', icon: '📱', color: '#E8E9FF' },
+  { name: 'Solar', icon: '☀️', color: '#FFF0BD' },
+  { name: 'Home', icon: '🏠', color: '#E6F2FF' },
+  { name: 'Personal Care', icon: '🧴', color: '#F9E5F3' },
+  { name: 'Electrical', icon: '💡', color: '#FFF0D9' },
+]
+
+const fallbackImages: Record<string, string> = {
+  Grocery:
+    'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600',
+  Fruits:
+    'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=600',
+  Electronics:
+    'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=600',
+  Solar:
+    'https://images.unsplash.com/photo-1509391366360-2e959784a276?w=600',
+  Home:
+    'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600',
+  'Personal Care':
+    'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=600',
+  Electrical:
+    'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=600',
+}
+
+function normalizeCategory(category: string) {
+  const normalized = category.trim().toLowerCase()
+
+  if (normalized === 'home & living' || normalized === 'home and living') {
+    return 'Home'
+  }
+
+  if (normalized === 'personal care') {
+    return 'Personal Care'
+  }
+
+  return category
+}
+
+function mapApiProduct(item: ApiProduct): Product {
+  const category = normalizeCategory(item.category || 'Other')
+
+  return {
+    id: item.id,
+    name: item.name,
+    category,
+    description: item.description || 'Quality product from Riya Quick Commerce',
+    price: Number(item.price) || 0,
+    mrp: Number(item.originalPrice ?? item.price) || 0,
+    unit: '1 piece',
+    image: item.imageUrl || fallbackImages[category] ||
+      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600',
+    rating: 0,
+  }
+}
+
+const formatPrice = (price: number) =>
+  `₹${price.toLocaleString('en-IN')}`
+
+function App() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState('')
+
+  const [search, setSearch] = useState('')
+  const [activeCategory, setActiveCategory] = useState('All')
+  const [cart, setCart] = useState<Record<number, number>>({})
+  const [cartOpen, setCartOpen] = useState(false)
+  const [mobileMenu, setMobileMenu] = useState(false)
+  const [wishlist, setWishlist] = useState<number[]>([])
+  const [locationOpen, setLocationOpen] = useState(false)
+  const [pincode, setPincode] = useState('209725')
+  const [selectedLocation, setSelectedLocation] = useState('Kannauj, UP')
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true)
+      setApiError('')
+
+      const response = await getProducts()
+
+      if (!response.success || !Array.isArray(response.data)) {
+        throw new Error('Invalid product data received from server.')
+      }
+
+      setProducts(response.data.map(mapApiProduct))
+    } catch (error) {
+      console.error('Product loading error:', error)
+      setApiError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to connect to the product server.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadProducts()
+  }, [])
+
+  const filteredProducts = useMemo(() => {
+    const query = search.trim().toLowerCase()
+
+    return products.filter((product) => {
+      const matchesCategory =
+        activeCategory === 'All' || product.category === activeCategory
+
+      const matchesSearch =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query)
+
+      return matchesCategory && matchesSearch
+    })
+  }, [products, activeCategory, search])
+
+  const cartItems = products.filter(
+    (product) => (cart[product.id] || 0) > 0
+  )
+
+  const cartCount = Object.values(cart).reduce(
+    (total, quantity) => total + quantity,
+    0
+  )
+
+  const subtotal = cartItems.reduce(
+    (total, product) => total + product.price * cart[product.id],
+    0
+  )
+
+  const totalSavings = cartItems.reduce(
+    (total, product) =>
+      total + Math.max(0, product.mrp - product.price) * cart[product.id],
+    0
+  )
+
+  const updateCart = (id: number, change: number) => {
+    setCart((previous) => {
+      const nextQuantity = (previous[id] || 0) + change
+      const next = { ...previous }
+
+      if (nextQuantity <= 0) {
+        delete next[id]
+      } else {
+        next[id] = nextQuantity
+      }
+
+      return next
+    })
+  }
+
+  const toggleWishlist = (id: number) => {
+    setWishlist((previous) =>
+      previous.includes(id)
+        ? previous.filter((item) => item !== id)
+        : [...previous, id]
+    )
+  }
+
+  const handleLocation = () => {
+    if (/^\d{6}$/.test(pincode)) {
+      setSelectedLocation(`${pincode}, UP`)
+      setLocationOpen(false)
+    } else {
+      alert('Please enter a valid six-digit PIN code.')
+    }
+  }
+
+  const scrollToProducts = () => {
+    document.getElementById('products')?.scrollIntoView({
+      behavior: 'smooth',
+    })
+  }
+
+  const selectCategory = (category: string) => {
+    setActiveCategory(category)
+    setMobileMenu(false)
+    scrollToProducts()
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="announcement">
+        <span>✦</span>
+        Welcome to Riya Quick Commerce
+        <span className="announcement-divider">|</span>
+        Your everyday shopping destination
+        <span>✦</span>
+      </div>
+
+      <header className="main-header">
+        <div className="header-container">
+          <button
+            className="mobile-menu-button icon-button"
+            onClick={() => setMobileMenu(!mobileMenu)}
+            aria-label="Open menu"
+          >
+            <Menu size={23} />
+          </button>
+
+          <a href="#" className="brand-logo">
+            <div className="logo-symbol">R</div>
+            <div className="logo-text">
+              <strong>RIYA<span>.</span></strong>
+              <small>QUICK COMMERCE</small>
+            </div>
+          </a>
+
+          <button
+            className="location-selector"
+            onClick={() => setLocationOpen(!locationOpen)}
+          >
+            <MapPin size={20} />
+            <div>
+              <small>DELIVERING TO</small>
+              <strong>{selectedLocation}</strong>
+            </div>
+            <ChevronDown size={16} />
+          </button>
+
+          <div className="header-search">
+            <Search size={20} />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setActiveCategory('All')
+              }}
+              placeholder="Search groceries, electronics, solar products..."
+              aria-label="Search products"
+            />
+
+            {search && (
+              <button
+                type="button"
+                className="search-clear-button"
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+              >
+                <X size={17} />
+              </button>
+            )}
+          </div>
+
+          <div className="header-actions">
+            <button
+              className="header-account"
+              onClick={() =>
+                alert('Customer login will be connected in the authentication phase.')
+              }
+            >
+              <UserRound size={20} />
+              <span>Account</span>
+            </button>
+
+            <button
+              className="cart-button"
+              onClick={() => setCartOpen(true)}
+            >
+              <ShoppingCart size={20} />
+              <span>Cart</span>
+              {cartCount > 0 && (
+                <b className="cart-count">{cartCount}</b>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {mobileMenu && (
+          <div className="mobile-menu">
+            {categories.map((category) => (
+              <button
+                key={category.name}
+                onClick={() => selectCategory(category.name)}
+              >
+                {category.icon} {category.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </header>
+
+      {locationOpen && (
+        <div className="location-popup">
+          <div className="popup-heading">
+            <strong>Select delivery location</strong>
+            <button onClick={() => setLocationOpen(false)}>
+              <X size={18} />
+            </button>
+          </div>
+
+          <p>Enter your six-digit PIN code.</p>
+
+          <input
+            value={pincode}
+            onChange={(event) =>
+              setPincode(event.target.value.replace(/\D/g, '').slice(0, 6))
+            }
+            placeholder="Enter PIN code"
+            maxLength={6}
+          />
+
+          <button className="primary-button" onClick={handleLocation}>
+            Confirm location
+          </button>
+
+          <small>
+            Delivery availability will be verified during checkout.
+          </small>
+        </div>
+      )}
+
+      <nav className="category-nav">
+        <div className="category-nav-inner">
+          <button onClick={() => selectCategory('All')}>
+            <Sparkles size={16} /> All products
+          </button>
+          <button onClick={() => selectCategory('Grocery')}>Grocery</button>
+          <button onClick={() => selectCategory('Electronics')}>Electronics</button>
+          <button onClick={() => selectCategory('Solar')}>Solar solutions</button>
+          <button onClick={() => selectCategory('Home')}>Home & living</button>
+          <button onClick={() => selectCategory('Personal Care')}>Personal care</button>
+          <button onClick={() => selectCategory('Electrical')}>Electrical</button>
+        </div>
+      </nav>
+
+      <main>
+        <section className="hero-section">
+          <div className="hero-content">
+            <div className="hero-eyebrow">
+              <Zap size={15} fill="currentColor" />
+              ONE STORE. ENDLESS POSSIBILITIES.
+            </div>
+
+            <h1>
+              Everything you need.
+              <br />
+              <span>Right at your doorstep.</span>
+            </h1>
+
+            <p>
+              From daily essentials to electronics and solar solutions,
+              discover more with Riya Quick Commerce.
+            </p>
+
+            <div className="hero-buttons">
+              <button
+                className="hero-primary-button"
+                onClick={scrollToProducts}
+              >
+                Explore products <ArrowRight size={18} />
+              </button>
+
+              <div className="hero-delivery-note">
+                <ShieldCheck size={20} />
+                <span>Trusted shopping</span>
+              </div>
+            </div>
+
+            <div className="hero-stats">
+              <div>
+                <strong>All-in-one</strong>
+                <small>Shopping destination</small>
+              </div>
+              <div>
+                <strong>Local</strong>
+                <small>Delivery network</small>
+              </div>
+              <div>
+                <strong>Easy</strong>
+                <small>Online shopping</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-visual">
+            <div className="hero-circle circle-one" />
+            <div className="hero-circle circle-two" />
+            <div className="hero-product hero-product-one">🥑</div>
+            <div className="hero-product hero-product-two">📱</div>
+            <div className="hero-product hero-product-three">☀️</div>
+            <div className="hero-product hero-product-four">🛒</div>
+
+            <div className="hero-main-illustration">
+              <div className="hero-shopping-bag">
+                <ShoppingBag size={90} strokeWidth={1.2} />
+                <div className="bag-items">🥬 🍎 📦</div>
+              </div>
+            </div>
+
+            <div className="floating-label floating-label-one">
+              <Zap size={15} fill="#F7C928" />
+              <span>Smart shopping</span>
+            </div>
+
+            <div className="floating-label floating-label-two">
+              <ShieldCheck size={16} />
+              <span>Quality products</span>
+            </div>
+          </div>
+
+          <div className="hero-bottom-shape" />
+        </section>
+
+        <section className="service-strip">
+          <div className="service-item">
+            <div className="service-icon green"><Truck /></div>
+            <div>
+              <strong>Local delivery</strong>
+              <small>Delivery in serviceable areas</small>
+            </div>
+          </div>
+
+          <div className="service-item">
+            <div className="service-icon yellow"><ShieldCheck /></div>
+            <div>
+              <strong>Quality products</strong>
+              <small>Carefully selected products</small>
+            </div>
+          </div>
+
+          <div className="service-item">
+            <div className="service-icon pink"><Tag /></div>
+            <div>
+              <strong>Great offers</strong>
+              <small>Value on selected products</small>
+            </div>
+          </div>
+
+          <div className="service-item">
+            <div className="service-icon blue"><Headphones /></div>
+            <div>
+              <strong>Customer support</strong>
+              <small>We're here to help</small>
+            </div>
+          </div>
+        </section>
+
+        <section className="content-section category-section">
+          <div className="section-heading">
+            <div>
+              <span className="section-eyebrow">EXPLORE OUR STORE</span>
+              <h2>Shop by category <span>✦</span></h2>
+              <p>Find everything you need, all in one place.</p>
+            </div>
+
+            <button className="text-link" onClick={() => selectCategory('All')}>
+              View all <ArrowUpRight size={17} />
+            </button>
+          </div>
+
+          <div className="category-grid">
+            {categories.map((category) => (
+              <button
+                className={`category-card ${activeCategory === category.name ? 'active' : ''}`}
+                key={category.name}
+                onClick={() => selectCategory(category.name)}
+              >
+                <div
+                  className="category-icon"
+                  style={{ backgroundColor: category.color }}
+                >
+                  {category.icon}
+                </div>
+                <strong>
+                  {category.name === 'All' ? 'All products' : category.name}
+                </strong>
+                <ArrowUpRight size={16} className="category-arrow" />
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="promo-banner">
+          <div className="promo-content">
+            <span className="promo-label">DISCOVER SOMETHING NEW</span>
+            <h2>More choices.<br />More convenience.</h2>
+            <p>Explore grocery, electronics, solar and everyday essentials.</p>
+            <button onClick={scrollToProducts}>
+              Start shopping <ArrowRight size={17} />
+            </button>
+          </div>
+
+          <div className="promo-art">
+            <div className="promo-art-circle" />
+            <span>🛍️</span>
+            <span>🍎</span>
+            <span>📱</span>
+            <span>☀️</span>
+          </div>
+        </section>
+
+        <section className="content-section products-section" id="products">
+          <div className="section-heading">
+            <div>
+              <span className="section-eyebrow">HANDPICKED FOR YOU</span>
+              <h2>
+                {search.trim()
+                  ? `Search results for "${search.trim()}"`
+                  : activeCategory === 'All'
+                    ? 'Popular products'
+                    : activeCategory}
+                <span> ✦</span>
+              </h2>
+              <p>Discover products worth adding to your cart.</p>
+            </div>
+
+            <div className="product-heading-right">
+              <span className="product-count">
+                {filteredProducts.length} products
+              </span>
+            </div>
+          </div>
+
+          <div className="product-filter-bar">
+            {categories.map((category) => (
+              <button
+                key={category.name}
+                className={activeCategory === category.name ? 'filter-active' : ''}
+                onClick={() => setActiveCategory(category.name)}
+              >
+                {category.icon} {category.name}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="empty-products">
+              <Package size={45} />
+              <h3>Loading products...</h3>
+              <p>Connecting to Riya Quick Commerce store.</p>
+            </div>
+          ) : apiError ? (
+            <div className="empty-products">
+              <Package size={45} />
+              <h3>Unable to load products</h3>
+              <p>{apiError}</p>
+              <button className="primary-button" onClick={() => void loadProducts()}>
+                <RefreshCw size={16} /> Retry connection
+              </button>
+            </div>
+          ) : filteredProducts.length > 0 ? (
+            <div className="product-grid">
+              {filteredProducts.map((product) => {
+                const isWishlisted = wishlist.includes(product.id)
+
+                return (
+                  <article className="product-card" key={product.id}>
+                    <div className="product-image-wrap">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.src =
+                            'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600'
+                        }}
+                      />
+
+                      {product.tag && (
+                        <span className="product-tag">{product.tag}</span>
+                      )}
+
+                      <button
+                        type="button"
+                        className={`wishlist-button ${isWishlisted ? 'wishlisted' : ''}`}
+                        onClick={() => toggleWishlist(product.id)}
+                        aria-label={
+                          isWishlisted
+                            ? 'Remove from wishlist'
+                            : 'Add to wishlist'
+                        }
+                        title={
+                          isWishlisted
+                            ? 'Remove from wishlist'
+                            : 'Add to wishlist'
+                        }
+                      >
+                        <Heart
+                          size={21}
+                          strokeWidth={2}
+                          fill={isWishlisted ? 'currentColor' : 'none'}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="product-information">
+                      {product.rating > 0 && (
+                        <div className="product-rating">
+                          <Star size={12} fill="currentColor" />
+                          {product.rating}
+                        </div>
+                      )}
+
+                      <h3>{product.name}</h3>
+                      <p>{product.description}</p>
+                      <div className="product-unit">{product.unit}</div>
+
+                      <div className="product-bottom">
+                        <div className="product-price">
+                          <strong>{formatPrice(product.price)}</strong>
+                          {product.mrp > product.price && (
+                            <del>{formatPrice(product.mrp)}</del>
+                          )}
+                        </div>
+
+                        {(cart[product.id] || 0) === 0 ? (
+                          <button
+                            className="add-button"
+                            onClick={() => updateCart(product.id, 1)}
+                          >
+                            ADD <Plus size={15} />
+                          </button>
+                        ) : (
+                          <div className="quantity-control">
+                            <button onClick={() => updateCart(product.id, -1)}>
+                              <Minus size={14} />
+                            </button>
+                            <strong>{cart[product.id]}</strong>
+                            <button onClick={() => updateCart(product.id, 1)}>
+                              <Plus size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="empty-products">
+              <Package size={45} />
+              <h3>No products found</h3>
+              <p>Try a different search or category.</p>
+              <button
+                className="primary-button"
+                onClick={() => {
+                  setSearch('')
+                  setActiveCategory('All')
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="deal-section">
+          <div className="deal-content">
+            <div>
+              <span className="section-eyebrow">SPECIAL SELECTION</span>
+              <h2>Deals you'll love <Zap size={25} fill="currentColor" /></h2>
+              <p>Explore selected products and exciting savings.</p>
+            </div>
+
+            <button
+              className="deal-explore-button"
+              onClick={() => {
+                setActiveCategory('All')
+                setSearch('')
+                scrollToProducts()
+              }}
+            >
+              Explore deals <ArrowRight size={17} />
+            </button>
+          </div>
+
+          <div className="deal-cards">
+            <div className="deal-card deal-card-one">
+              <div>
+                <span>FRESH FINDS</span>
+                <h3>Everyday<br />essentials</h3>
+                <p>Shop your daily favourites.</p>
+                <button onClick={() => selectCategory('Grocery')}>
+                  Explore <ArrowRight size={15} />
+                </button>
+              </div>
+              <span className="deal-emoji">🥑</span>
+            </div>
+
+            <div className="deal-card deal-card-two">
+              <div>
+                <span>POWER YOUR HOME</span>
+                <h3>Solar &<br />electronics</h3>
+                <p>Explore smarter solutions.</p>
+                <button onClick={() => selectCategory('Solar')}>
+                  Explore <ArrowRight size={15} />
+                </button>
+              </div>
+              <span className="deal-emoji">☀️</span>
+            </div>
+
+            <div className="deal-card deal-card-three">
+              <div>
+                <span>HOME & LIVING</span>
+                <h3>Make life<br />easier</h3>
+                <p>Find useful everyday products.</p>
+                <button onClick={() => selectCategory('Home')}>
+                  Explore <ArrowRight size={15} />
+                </button>
+              </div>
+              <span className="deal-emoji">🏠</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="trust-section">
+          <div>
+            <div className="trust-icon"><ShieldCheck size={30} /></div>
+            <h3>Shopping made simple</h3>
+            <p>
+              Explore products, compare options and shop conveniently from one place.
+            </p>
+          </div>
+
+          <div>
+            <div className="trust-icon"><Truck size={30} /></div>
+            <h3>Local delivery network</h3>
+            <p>
+              Delivery availability and timing based on your serviceable location.
+            </p>
+          </div>
+
+          <div>
+            <div className="trust-icon"><Headphones size={30} /></div>
+            <h3>Customer first</h3>
+            <p>Support and assistance whenever you need help with an order.</p>
+          </div>
+        </section>
+      </main>
+
+      <footer className="main-footer">
+        <div className="footer-main">
+          <div className="footer-brand">
+            <a href="#" className="brand-logo footer-logo">
+              <div className="logo-symbol">R</div>
+              <div className="logo-text">
+                <strong>RIYA<span>.</span></strong>
+                <small>QUICK COMMERCE</small>
+              </div>
+            </a>
+
+            <p>
+              Your destination for grocery, electronics, solar solutions
+              and everyday essentials.
+            </p>
+          </div>
+
+          <div className="footer-column">
+            <h4>Explore</h4>
+            <a href="#products">Products</a>
+            <a href="#products">Categories</a>
+            <a href="#products">Special offers</a>
+            <a href="#products">New arrivals</a>
+          </div>
+
+          <div className="footer-column">
+            <h4>Customer care</h4>
+            <a href="#support">Contact us</a>
+            <a href="#support">Help centre</a>
+            <a href="#support">Shipping policy</a>
+            <a href="#support">Returns & refunds</a>
+          </div>
+
+          <div className="footer-column">
+            <h4>About Riya</h4>
+            <a href="#about">About us</a>
+            <a href="#about">Privacy policy</a>
+            <a href="#about">Terms & conditions</a>
+            <a href="#about">Business enquiries</a>
+          </div>
+
+          <div className="footer-newsletter">
+            <h4>Stay connected</h4>
+            <p>Get updates about products and offers.</p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                alert('Newsletter subscription will be connected to the backend.')
+              }}
+            >
+              <input type="email" placeholder="Your email address" required />
+              <button aria-label="Subscribe">
+                <ArrowRight size={18} />
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>
+            © {new Date().getFullYear()} Riya Quick Commerce. All rights reserved.
+          </p>
+          <div>
+            <span>Made for everyday convenience</span>
+            <span>India 🇮🇳</span>
+          </div>
+        </div>
+      </footer>
+
+      {cartOpen && (
+        <div className="drawer-overlay" onClick={() => setCartOpen(false)}>
+          <aside
+            className="cart-drawer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="drawer-header">
+              <div>
+                <h2>Your cart</h2>
+                <small>{cartCount} items</small>
+              </div>
+              <button onClick={() => setCartOpen(false)}>
+                <X size={22} />
+              </button>
+            </div>
+
+            {cartItems.length === 0 ? (
+              <div className="empty-cart">
+                <div className="empty-cart-icon">
+                  <ShoppingCart size={48} />
+                </div>
+                <h3>Your cart is empty</h3>
+                <p>Add products to start shopping.</p>
+                <button
+                  className="primary-button"
+                  onClick={() => setCartOpen(false)}
+                >
+                  Explore products
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="cart-items">
+                  {cartItems.map((product) => (
+                    <div className="cart-item" key={product.id}>
+                      <img src={product.image} alt={product.name} />
+
+                      <div className="cart-item-info">
+                        <strong>{product.name}</strong>
+                        <small>{product.unit}</small>
+                        <b>
+                          {formatPrice(product.price * cart[product.id])}
+                        </b>
+                      </div>
+
+                      <div className="quantity-control">
+                        <button onClick={() => updateCart(product.id, -1)}>
+                          <Minus size={13} />
+                        </button>
+                        <strong>{cart[product.id]}</strong>
+                        <button onClick={() => updateCart(product.id, 1)}>
+                          <Plus size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="cart-summary">
+                  <div>
+                    <span>Subtotal</span>
+                    <strong>{formatPrice(subtotal)}</strong>
+                  </div>
+
+                  <div>
+                    <span>Product savings</span>
+                    <strong className="savings-text">
+                      -{formatPrice(totalSavings)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Delivery charge</span>
+                    <strong>Calculated at checkout</strong>
+                  </div>
+
+                  <div className="cart-total">
+                    <span>Items total</span>
+                    <strong>{formatPrice(subtotal)}</strong>
+                  </div>
+
+                  <button
+                    className="checkout-button"
+                    onClick={() =>
+                      alert('Checkout will be implemented in the next development phase.')
+                    }
+                  >
+                    Continue to checkout <ArrowRight size={18} />
+                  </button>
+
+                  <small>
+                    Final payable amount will be calculated at checkout.
+                  </small>
+                </div>
+              </>
+            )}
+          </aside>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default App
+
+
+
+
+========== FILE: apps\storefront\src\App.css ==========
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+@import "tailwindcss";
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #17251d;
+  background: #fffdf7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+
+  --yellow: #f7c928;
+  --green: #168447;
+  --dark: #15251d;
+  --cream: #fff8e8;
+  --muted: #747d76;
+  --border: #eaece6;
+  --white: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+}
+
+button, input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid #168447;
+  outline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ANNOUNCEMENT */
+
+.announcement {
+  min-height: 34px;
+  background: #15251d;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+
+.announcement span:first-child,
+.announcement span:last-child {
+  color: #f7c928;
+}
+
+.announcement-divider {
+  color: #87948b;
+}
+
+/* HEADER */
+
+.main-header {
+  background: #ffffff;
+  position: relative;
+  z-index: 20;
+  border-bottom: 1px solid #eff0ec;
+}
+
+.header-container {
+  max-width: 1440px;
+  min-height: 88px;
+  margin: auto;
+  padding: 14px 5%;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+}
+
+.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.logo-symbol {
+  width: 43px;
+  height: 43px;
+  background: #f7c928;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-family: Outfit, sans-serif;
+  font-weight: 900;
+  font-size: 28px;
+  color: #15251d;
+  transform: rotate(-4deg);
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.logo-text strong {
+  font-family: Outfit, sans-serif;
+  font-size: 25px;
+  letter-spacing: -1px;
+  font-weight: 900;
+}
+
+.logo-text strong span {
+  color: #168447;
+}
+
+.logo-text small {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin-top: 5px;
+  color: #6f7a70;
+}
+
+.location-selector {
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  min-width: 145px;
+  color: #168447;
+}
+
+.location-selector div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.location-selector small {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  color: #858d84;
+}
+
+.location-selector strong {
+  font-size: 13px;
+  color: #15251d;
+}
+
+.header-search {
+  flex: 1;
+  max-width: 600px;
+  min-height: 47px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: #f6f7f3;
+  border: 1px solid #eceee9;
+  border-radius: 11px;
+  color: #168447;
+  transition: .2s;
+}
+
+.header-search:focus-within {
+  background: #ffffff;
+  border-color: #168447;
+  box-shadow: 0 0 0 3px #16844712;
+}
+
+.header-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #15251d;
+  font-size: 13px;
+}
+
+.header-search kbd {
+  background: #ffffff;
+  border: 1px solid #e4e6df;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  color: #8b938a;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 19px;
+}
+
+.header-account,
+.cart-button {
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #15251d;
+  position: relative;
+}
+
+.header-account svg {
+  color: #168447;
+}
+
+.cart-button {
+  background: #f7c928;
+  padding: 13px 17px;
+  border-radius: 9px;
+}
+
+.cart-count {
+  position: absolute;
+  top: -9px;
+  right: -8px;
+  background: #168447;
+  color: white;
+  border-radius: 20px;
+  min-width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+}
+
+.mobile-menu-button,
+.mobile-menu {
+  display: none;
+}
+
+/* LOCATION POPUP */
+
+.location-popup {
+  position: absolute;
+  z-index: 60;
+  top: 125px;
+  left: 22%;
+  width: 300px;
+  padding: 20px;
+  background: white;
+  box-shadow: 0 12px 45px #15251d25;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.popup-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.popup-heading button {
+  border: none;
+  background: none;
+}
+
+.location-popup p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 12px 0;
+}
+
+.location-popup input {
+  width: 100%;
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: 8px;
+  outline-color: var(--green);
+}
+
+.location-popup small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+/* CATEGORY NAV */
+
+.category-nav {
+  background: #ffffff;
+}
+
+.category-nav-inner {
+  max-width: 1350px;
+  margin: auto;
+  padding: 0 5%;
+  min-height: 47px;
+  display: flex;
+  align-items: center;
+  gap: 33px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.category-nav-inner::-webkit-scrollbar {
+  display: none;
+}
+
+.category-nav button {
+  border: none;
+  background: none;
+  color: #555f56;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: .2s;
+}
+
+.category-nav button:hover {
+  color: #168447;
+}
+
+/* HERO */
+
+.hero-section {
+  max-width: 1440px;
+  min-height: 470px;
+  margin: 20px auto 0;
+  padding: 50px 7%;
+  background: #fff2c8;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1.05fr .95fr;
+  align-items: center;
+}
+
+.hero-content {
+  z-index: 2;
+  position: relative;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-radius: 50px;
+  color: #168447;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.hero-content h1 {
+  font-family: Outfit, sans-serif;
+  font-size: clamp(34px, 4.1vw, 58px);
+  line-height: 1.13;
+  font-weight: 800;
+  letter-spacing: -2px;
+  margin-top: 23px;
+  color: #15251d;
+}
+
+.hero-content h1 span {
+  color: #168447;
+}
+
+.hero-content > p {
+  max-width: 490px;
+  margin-top: 19px;
+  color: #667166;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.hero-buttons {
+  margin-top: 26px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.hero-primary-button {
+  border: none;
+  background: #168447;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 22px;
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 13px;
+  transition: .2s;
+}
+
+.hero-primary-button:hover {
+  background: #116a39;
+  transform: translateY(-2px);
+}
+
+.hero-delivery-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #168447;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 35px;
+  margin-top: 42px;
+}
+
+.hero-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hero-stats strong {
+  font-size: 14px;
+  font-family: Outfit, sans-serif;
+}
+
+.hero-stats small {
+  color: #7b8579;
+  font-size: 10px;
+}
+
+.hero-visual {
+  min-height: 370px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.hero-circle {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.circle-one {
+  width: 320px;
+  height: 320px;
+  background: #f7c928;
+  opacity: .65;
+}
+
+.circle-two {
+  width: 240px;
+  height: 240px;
+  background: #168447;
+  opacity: .12;
+}
+
+.hero-main-illustration {
+  position: relative;
+  z-index: 2;
+  width: 210px;
+  height: 245px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #ffffff, #f4e9c5);
+  border-radius: 28px 28px 55px 55px;
+  transform: rotate(-7deg);
+  box-shadow: 0 30px 55px #5e56212b;
+}
+
+.hero-shopping-bag {
+  color: #168447;
+  position: relative;
+}
+
+.bag-items {
+  font-size: 25px;
+  position: absolute;
+  top: 32px;
+  left: -9px;
+  white-space: nowrap;
+}
+
+.hero-product {
+  position: absolute;
+  z-index: 3;
+  width: 65px;
+  height: 65px;
+  background: #ffffff;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  box-shadow: 0 10px 30px #15251d17;
+  animation: float 4s ease-in-out infinite;
+}
+
+.hero-product-one {
+  top: 28px;
+  left: 10%;
+}
+
+.hero-product-two {
+  top: 20px;
+  right: 10%;
+  animation-delay: .5s;
+}
+
+.hero-product-three {
+  bottom: 32px;
+  right: 9%;
+  animation-delay: 1s;
+}
+
+.hero-product-four {
+  bottom: 25px;
+  left: 9%;
+  animation-delay: 1.5s;
+}
+
+.floating-label {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 15px;
+  background: white;
+  border-radius: 9px;
+  box-shadow: 0 10px 30px #15251d16;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.floating-label-one {
+  top: 20%;
+  right: -3%;
+}
+
+.floating-label-one svg {
+  color: #e8ad00;
+}
+
+.floating-label-two {
+  bottom: 15%;
+  left: 0;
+}
+
+.floating-label-two svg {
+  color: #168447;
+}
+
+.hero-bottom-shape {
+  position: absolute;
+  height: 35px;
+  bottom: -25px;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-radius: 50% 50% 0 0;
+}
+
+/* SERVICE STRIP */
+
+.service-strip {
+  max-width: 1300px;
+  margin: 25px auto 0;
+  padding: 25px 30px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  background: #ffffff;
+  border: 1px solid #edf0e9;
+  border-radius: 14px;
+}
+
+.service-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.service-icon {
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.service-icon svg {
+  width: 20px;
+}
+
+.service-icon.green { background: #e3f4e5; color: #168447; }
+.service-icon.yellow { background: #fff1c7; color: #bb8900; }
+.service-icon.pink { background: #fce8f0; color: #d15a88; }
+.service-icon.blue { background: #e5efff; color: #3971c4; }
+
+.service-item div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.service-item strong {
+  font-size: 12px;
+}
+
+.service-item small {
+  font-size: 10px;
+  color: #899188;
+}
+
+/* CONTENT SECTIONS */
+
+.content-section {
+  max-width: 1300px;
+  margin: 80px auto 0;
+  padding: 0 20px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 27px;
+}
+
+.section-eyebrow {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #168447;
+}
+
+.section-heading h2 {
+  font-family: Outfit, sans-serif;
+  font-size: 31px;
+  letter-spacing: -1px;
+  margin-top: 7px;
+}
+
+.section-heading h2 span {
+  color: #e9b91e;
+}
+
+.section-heading p {
+  font-size: 12px;
+  color: #899188;
+  margin-top: 7px;
+}
+
+.text-link {
+  border: none;
+  background: none;
+  color: #168447;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* CATEGORIES */
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.category-card {
+  position: relative;
+  border: 1px solid #edf0e9;
+  background: #ffffff;
+  border-radius: 14px;
+  min-height: 145px;
+  padding: 15px 8px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  transition: .25s;
+}
+
+.category-card:hover,
+.category-card.active {
+  border-color: #168447;
+  transform: translateY(-5px);
+  box-shadow: 0 12px 25px #16844712;
+}
+
+.category-icon {
+  width: 66px;
+  height: 66px;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  border-radius: 20px;
+}
+
+.category-card strong {
+  font-size: 11px;
+  text-align: center;
+}
+
+.category-arrow {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #9ca69b;
+  opacity: 0;
+  transition: .2s;
+}
+
+.category-card:hover .category-arrow {
+  opacity: 1;
+}
+
+/* PROMOTION BANNER */
+
+.promo-banner {
+  max-width: 1260px;
+  min-height: 260px;
+  margin: 80px auto 0;
+  padding: 40px 65px;
+  background: #e2f1df;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.promo-content {
+  position: relative;
+  z-index: 2;
+}
+
+.promo-label {
+  color: #168447;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.promo-content h2 {
+  font-family: Outfit, sans-serif;
+  font-size: 38px;
+  line-height: 1.1;
+  margin: 12px 0;
+}
+
+.promo-content p {
+  font-size: 12px;
+  color: #687568;
+  margin-bottom: 20px;
+}
+
+.promo-content button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 19px;
+  border: none;
+  border-radius: 8px;
+  background: #168447;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.promo-art {
+  width: 400px;
+  height: 200px;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.promo-art-circle {
+  width: 180px;
+  height: 180px;
+  background: #f7c928;
+  border-radius: 50%;
+}
+
+.promo-art > span {
+  position: absolute;
+  background: white;
+  border-radius: 18px;
+  padding: 13px;
+  font-size: 40px;
+  box-shadow: 0 10px 25px #15251d16;
+}
+
+.promo-art > span:nth-child(2) { top: 0; left: 65px; }
+.promo-art > span:nth-child(3) { right: 45px; top: 5px; }
+.promo-art > span:nth-child(4) { bottom: 0; left: 90px; }
+.promo-art > span:nth-child(5) { right: 35px; bottom: 0; }
+
+/* PRODUCTS */
+
+.product-heading-right {
+  color: #899188;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.product-filter-bar {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  padding-bottom: 16px;
+  scrollbar-width: none;
+}
+
+.product-filter-bar button {
+  white-space: nowrap;
+  border: 1px solid #e9ece6;
+  background: white;
+  padding: 9px 14px;
+  border-radius: 50px;
+  color: #626c62;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.product-filter-bar button.filter-active {
+  background: #168447;
+  border-color: #168447;
+  color: white;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.product-card {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #ebeee8;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: .25s;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px #15251d10;
+  border-color: #d5e9d9;
+}
+
+.product-image-wrap {
+  height: 205px;
+  background: #f7f8f4;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.product-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform .4s;
+}
+
+.product-card:hover .product-image-wrap img {
+  transform: scale(1.07);
+}
+
+.product-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 6px 9px;
+  background: #168447;
+  color: white;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  border-radius: 5px;
+}
+
+.wishlist-button {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: white;
+  color: #777;
+  display: grid;
+  place-items: center;
+}
+
+.wishlist-button.wishlisted {
+  color: #e45d63;
+}
+
+.product-information {
+  padding: 15px;
+}
+
+.product-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #b78b00;
+  font-size: 10px;
+  font-weight: 800;
+  background: #fff5d8;
+  padding: 5px 7px;
+  border-radius: 5px;
+}
+
+.product-information h3 {
+  font-size: 14px;
+  margin-top: 11px;
+  line-height: 1.4;
+}
+
+.product-information > p {
+  color: #8a938a;
+  font-size: 10px;
+  margin-top: 6px;
+  line-height: 1.5;
+}
+
+.product-unit {
+  font-size: 10px;
+  color: #929a91;
+  margin-top: 11px;
+}
+
+.product-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.product-price {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.product-price strong {
+  font-family: Outfit, sans-serif;
+  font-size: 17px;
+}
+
+.product-price del {
+  color: #9aa19a;
+  font-size: 10px;
+}
+
+.add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 9px 14px;
+  min-width: 76px;
+  border: 1px solid #168447;
+  color: #168447;
+  background: #f0faf1;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 900;
+  transition: .2s;
+}
+
+.add-button:hover {
+  background: #168447;
+  color: white;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #168447;
+  color: white;
+  padding: 5px 7px;
+  border-radius: 7px;
+}
+
+.quantity-control button {
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: white;
+  border: none;
+}
+
+.quantity-control strong {
+  font-size: 12px;
+}
+
+.empty-products {
+  padding: 70px 20px;
+  text-align: center;
+  border: 1px dashed #dfe6dc;
+  border-radius: 15px;
+  color: #899188;
+}
+
+.empty-products h3 {
+  color: #15251d;
+  margin: 15px 0 7px;
+}
+
+.empty-products p {
+  font-size: 12px;
+  margin-bottom: 15px;
+}
+
+/* DEAL SECTION */
+
+.deal-section {
+  max-width: 1260px;
+  margin: 90px auto 0;
+  padding: 35px;
+  background: #fff8e8;
+  border-radius: 20px;
+}
+
+.deal-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.deal-content h2 {
+  font-family: Outfit, sans-serif;
+  font-size: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.deal-content h2 svg {
+  color: #e7ae0c;
+}
+
+.deal-content p {
+  color: #879084;
+  font-size: 12px;
+  margin-top: 7px;
+}
+
+.deal-explore-button {
+  border: none;
+  background: #15251d;
+  color: white;
+  padding: 12px 17px;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.deal-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.deal-card {
+  min-height: 205px;
+  border-radius: 13px;
+  padding: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  position: relative;
+}
+
+.deal-card-one { background: #dff0df; }
+.deal-card-two { background: #fff0bf; }
+.deal-card-three { background: #f6e6f1; }
+
+.deal-card > div {
+  position: relative;
+  z-index: 2;
+}
+
+.deal-card span:first-child {
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #168447;
+}
+
+.deal-card h3 {
+  font-family: Outfit, sans-serif;
+  font-size: 23px;
+  line-height: 1.15;
+  margin: 10px 0;
+}
+
+.deal-card p {
+  color: #737e72;
+  font-size: 10px;
+  margin-bottom: 13px;
+}
+
+.deal-card button {
+  border: none;
+  background: white;
+  padding: 9px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.deal-emoji {
+  font-size: 62px;
+  align-self: center;
+  z-index: 1;
+}
+
+/* TRUST SECTION */
+
+.trust-section {
+  max-width: 1200px;
+  margin: 80px auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+  text-align: center;
+}
+
+.trust-icon {
+  width: 62px;
+  height: 62px;
+  margin: auto;
+  display: grid;
+  place-items: center;
+  background: #e5f5e7;
+  color: #168447;
+  border-radius: 18px;
+}
+
+.trust-section h3 {
+  font-family: Outfit, sans-serif;
+  font-size: 16px;
+  margin-top: 17px;
+}
+
+.trust-section p {
+  max-width: 280px;
+  margin: 9px auto 0;
+  color: #899188;
+  font-size: 11px;
+  line-height: 1.8;
+}
+
+/* FOOTER */
+
+.main-footer {
+  background: #15251d;
+  color: white;
+  padding: 65px 6% 20px;
+}
+
+.footer-main {
+  max-width: 1350px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1fr 1.3fr;
+  gap: 35px;
+}
+
+.footer-logo .logo-text strong {
+  color: white;
+}
+
+.footer-logo .logo-text small {
+  color: #a9b6a9;
+}
+
+.footer-brand > p {
+  color: #9eac9e;
+  font-size: 11px;
+  line-height: 1.9;
+  max-width: 240px;
+  margin-top: 18px;
+}
+
+.footer-column,
+.footer-newsletter {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.footer-column h4,
+.footer-newsletter h4 {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.footer-column a {
+  font-size: 11px;
+  color: #a7b1a6;
+  transition: .2s;
+}
+
+.footer-column a:hover {
+  color: #f7c928;
+}
+
+.footer-newsletter p {
+  color: #a7b1a6;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.footer-newsletter form {
+  display: flex;
+  background: #ffffff;
+  border-radius: 7px;
+  padding: 4px;
+}
+
+.footer-newsletter input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px;
+  border: none;
+  outline: none;
+  font-size: 10px;
+}
+
+.footer-newsletter form button {
+  width: 35px;
+  flex-shrink: 0;
+  background: #f7c928;
+  color: #15251d;
+  border: none;
+  border-radius: 5px;
+}
+
+.footer-bottom {
+  max-width: 1350px;
+  margin: 50px auto 0;
+  padding-top: 20px;
+  border-top: 1px solid #34443a;
+  display: flex;
+  justify-content: space-between;
+  color: #9eac9e;
+  font-size: 10px;
+}
+
+.footer-bottom div {
+  display: flex;
+  gap: 25px;
+}
+
+/* CART DRAWER */
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #15251d80;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cart-drawer {
+  width: min(440px, 100%);
+  height: 100%;
+  background: white;
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn .25s ease;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 18px;
+}
+
+.drawer-header h2 {
+  font-family: Outfit, sans-serif;
+  font-size: 23px;
+}
+
+.drawer-header small {
+  color: #899188;
+  font-size: 11px;
+}
+
+.drawer-header button {
+  background: #f3f5f0;
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.empty-cart {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.empty-cart-icon {
+  width: 95px;
+  height: 95px;
+  border-radius: 50%;
+  background: #fff5d8;
+  display: grid;
+  place-items: center;
+  color: #168447;
+}
+
+.empty-cart h3 {
+  margin-top: 20px;
+  font-family: Outfit, sans-serif;
+}
+
+.empty-cart p {
+  font-size: 12px;
+  color: #899188;
+  margin: 9px 0 20px;
+}
+
+.primary-button {
+  width: 100%;
+  background: #168447;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 13px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.cart-items {
+  overflow-y: auto;
+  flex: 1;
+  padding-top: 15px;
+}
+
+.cart-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-item img {
+  width: 62px;
+  height: 62px;
+  border-radius: 9px;
+  object-fit: cover;
+  background: #f3f5f0;
+}
+
+.cart-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cart-item-info strong {
+  font-size: 11px;
+}
+
+.cart-item-info small {
+  font-size: 10px;
+  color: #899188;
+}
+
+.cart-item-info b {
+  font-size: 12px;
+}
+
+.cart-summary {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.cart-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 11px;
+}
+
+.cart-summary > div strong {
+  text-align: right;
+}
+
+.savings-text {
+  color: #168447;
+}
+
+.cart-summary .cart-total {
+  border-top: 1px dashed #d9ded5;
+  margin-top: 10px;
+  padding: 15px 0;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.checkout-button {
+  width: 100%;
+  background: #f7c928;
+  color: #15251d;
+  border: none;
+  padding: 15px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.cart-summary > small {
+  display: block;
+  text-align: center;
+  color: #899188;
+  font-size: 9px;
+  margin-top: 12px;
+}
+
+/* ANIMATIONS */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* RESPONSIVE TABLET */
+
+@media (max-width: 1100px) {
+  .header-container {
+    gap: 15px;
+    padding: 14px 3%;
+  }
+
+  .location-selector {
+    min-width: 115px;
+  }
+
+  .header-search {
+    max-width: none;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .service-strip {
+    margin-left: 20px;
+    margin-right: 20px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .footer-main {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .deal-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* RESPONSIVE MOBILE */
+
+@media (max-width: 700px) {
+  .announcement {
+    font-size: 9px;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .header-container {
+    min-height: 70px;
+    padding: 10px 14px;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .mobile-menu-button {
+    display: grid;
+    place-items: center;
+    border: none;
+    background: none;
+    color: #15251d;
+  }
+
+  .logo-symbol {
+    width: 37px;
+    height: 37px;
+    font-size: 24px;
+  }
+
+  .logo-text strong {
+    font-size: 21px;
+  }
+
+  .logo-text small {
+    font-size: 7px;
+  }
+
+  .location-selector {
+    order: 3;
+    min-width: 0;
+    margin-left: 0;
+    flex: 1;
+  }
+
+  .location-selector small {
+    font-size: 8px;
+  }
+
+  .location-selector strong {
+    font-size: 11px;
+  }
+
+  .header-search {
+    order: 4;
+    flex-basis: 100%;
+    max-width: 100%;
+    min-height: 43px;
+  }
+
+  .header-search kbd {
+    display: none;
+  }
+
+  .header-actions {
+    margin-left: auto;
+    gap: 12px;
+  }
+
+  .header-account span,
+  .cart-button span {
+    display: none;
+  }
+
+  .cart-button {
+    padding: 10px;
+  }
+
+  .mobile-menu {
+    position: absolute;
+    z-index: 50;
+    left: 12px;
+    top: 65px;
+    width: 220px;
+    background: white;
+    border: 1px solid var(--border);
+    box-shadow: 0 15px 35px #15251d20;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .mobile-menu button {
+    text-align: left;
+    background: none;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .mobile-menu button:hover {
+    background: #f0f7ef;
+  }
+
+  .category-nav-inner {
+    padding: 0 14px;
+    gap: 20px;
+    min-height: 43px;
+  }
+
+  .category-nav button {
+    font-size: 10px;
+  }
+
+  .hero-section {
+    margin: 12px 12px 0;
+    border-radius: 15px;
+    padding: 32px 22px 15px;
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .hero-content h1 {
+    font-size: 35px;
+    letter-spacing: -1.5px;
+  }
+
+  .hero-content > p {
+    font-size: 12px;
+  }
+
+  .hero-buttons {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+
+  .hero-stats {
+    gap: 19px;
+    margin-top: 27px;
+  }
+
+  .hero-stats strong {
+    font-size: 11px;
+  }
+
+  .hero-stats small {
+    font-size: 8px;
+  }
+
+  .hero-visual {
+    min-height: 285px;
+    margin-top: 10px;
+  }
+
+  .circle-one {
+    width: 230px;
+    height: 230px;
+  }
+
+  .circle-two {
+    width: 180px;
+    height: 180px;
+  }
+
+  .hero-main-illustration {
+    width: 145px;
+    height: 180px;
+  }
+
+  .hero-shopping-bag svg {
+    width: 65px;
+  }
+
+  .bag-items {
+    font-size: 18px;
+  }
+
+  .hero-product {
+    width: 48px;
+    height: 48px;
+    font-size: 26px;
+    border-radius: 14px;
+  }
+
+  .floating-label {
+    font-size: 9px;
+    padding: 8px 10px;
+  }
+
+  .floating-label-one {
+    right: 0;
+  }
+
+  .service-strip {
+    margin: 15px 12px 0;
+    padding: 17px 12px;
+    gap: 18px 10px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .service-item {
+    gap: 8px;
+  }
+
+  .service-icon {
+    width: 35px;
+    height: 35px;
+  }
+
+  .service-icon svg {
+    width: 17px;
+  }
+
+  .service-item strong {
+    font-size: 10px;
+  }
+
+  .service-item small {
+    font-size: 8px;
+  }
+
+  .content-section {
+    margin-top: 55px;
+    padding: 0 14px;
+  }
+
+  .section-heading {
+    margin-bottom: 20px;
+  }
+
+  .section-heading h2 {
+    font-size: 24px;
+  }
+
+  .section-heading p {
+    font-size: 10px;
+  }
+
+  .category-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 9px;
+  }
+
+  .category-card {
+    min-height: 110px;
+    padding: 10px 4px;
+    gap: 8px;
+    border-radius: 11px;
+  }
+
+  .category-icon {
+    width: 47px;
+    height: 47px;
+    font-size: 25px;
+    border-radius: 14px;
+  }
+
+  .category-card strong {
+    font-size: 9px;
+  }
+
+  .category-arrow {
+    display: none;
+  }
+
+  .promo-banner {
+    margin: 55px 12px 0;
+    padding: 25px 20px;
+    min-height: 220px;
+  }
+
+  .promo-content h2 {
+    font-size: 29px;
+  }
+
+  .promo-content p {
+    max-width: 190px;
+    line-height: 1.6;
+  }
+
+  .promo-art {
+    width: 115px;
+    position: absolute;
+    right: -12px;
+    opacity: .9;
+  }
+
+  .promo-art-circle {
+    width: 100px;
+    height: 100px;
+  }
+
+  .promo-art > span {
+    font-size: 23px;
+    padding: 8px;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+  }
+
+  .product-image-wrap {
+    height: 145px;
+  }
+
+  .product-information {
+    padding: 10px;
+  }
+
+  .product-information h3 {
+    font-size: 11px;
+  }
+
+  .product-information > p {
+    font-size: 9px;
+  }
+
+  .product-price strong {
+    font-size: 14px;
+  }
+
+  .product-price del {
+    font-size: 9px;
+  }
+
+  .add-button {
+    min-width: 62px;
+    padding: 8px;
+    font-size: 10px;
+  }
+
+  .quantity-control {
+    gap: 7px;
+    padding: 5px;
+  }
+
+  .quantity-control strong {
+    font-size: 10px;
+  }
+
+  .deal-section {
+    margin: 55px 12px 0;
+    padding: 20px 14px;
+  }
+
+  .deal-content {
+    align-items: start;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .deal-content h2 {
+    font-size: 24px;
+  }
+
+  .deal-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .deal-card {
+    min-height: 175px;
+    padding: 19px;
+  }
+
+  .trust-section {
+    margin: 55px 20px;
+    grid-template-columns: 1fr;
+    gap: 35px;
+  }
+
+  .footer-main {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 35px 20px;
+  }
+
+  .footer-brand,
+  .footer-newsletter {
+    grid-column: span 2;
+  }
+
+  .main-footer {
+    padding: 45px 20px 20px;
+  }
+
+  .footer-bottom {
+    margin-top: 35px;
+    gap: 12px;
+    flex-direction: column;
+  }
+
+  .footer-bottom div {
+    gap: 15px;
+  }
+
+  .location-popup {
+    left: 10px;
+    top: 125px;
+    width: calc(100% - 20px);
+  }
+
+  .cart-drawer {
+    padding: 18px;
+  }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 380px) {
+  .hero-content h1 {
+    font-size: 30px;
+  }
+
+  .product-grid {
+    gap: 8px;
+  }
+
+  .product-image-wrap {
+    height: 125px;
+  }
+
+  .category-card strong {
+    font-size: 8px;
+  }
+
+  .service-item small {
+    font-size: 7px;
+  }
+
+  .product-bottom {
+    flex-wrap: wrap;
+  }
+}
+
+
+========== FILE: apps\storefront\src\services\api.ts ==========
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+export type ApiProduct = {
+  id: number
+  name: string
+  slug: string
+  description: string
+  price: number
+  originalPrice: number | null
+  stock: number
+  imageUrl: string
+  sku: string | null
+  category: string
+  categorySlug: string
+}
+
+export type ApiCategory = {
+  id: number
+  name: string
+  slug: string
+  description: string
+  product_count: number
+}
+
+type ApiResponse<T> = {
+  success: boolean
+  data: T
+  message?: string
+  total?: number
+}
+
+async function request<T>(endpoint: string): Promise<ApiResponse<T>> {
+  const response = await fetch(`${API_URL}${endpoint}`)
+
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`)
+  }
+
+  return response.json() as Promise<ApiResponse<T>>
+}
+
+export function getProducts(search = '', category = '') {
+  const params = new URLSearchParams()
+
+  if (search.trim()) params.set('search', search.trim())
+  if (category && category !== 'All') {
+    params.set('category', category.toLowerCase().replaceAll(' ', '-').replaceAll('&-', ''))
+  }
+
+  const query = params.toString()
+
+  return request<ApiProduct[]>(`/products${query ? `?${query}` : ''}`)
+}
+
+export function getCategories() {
+  return request<ApiCategory[]>('/categories')
+}
+
+export function checkApiHealth() {
+  return request<{
+    message: string
+    database: string
+    timestamp: string
+  }>('/health')
+}
+
+
+========== FILE: apps\storefront\package.json ==========
+{
+  "name": "storefront",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.65.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.89.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.5"
+  }
+}
+
+
+
+========== FILE: apps\admin\src\App.tsx ==========
+
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Activity,
+  AlertTriangle,
+  Archive,
+  ArrowDown,
+  ArrowUp,
+  Boxes,
+  Check,
+  CircleAlert,
+  ClipboardList,
+  Eye,
+  EyeOff,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  Plus,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  ShoppingBag,
+  Tag,
+  Truck,
+  MapPin,
+  Phone,
+  Warehouse,
+  
+  X,
+} from 'lucide-react';
+import './App.css';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+type Admin = {
+  id: number;
+  email: string;
+  role: string;
+};
+
+type Product = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  categoryId: number;
+  category?: string;
+  price: number;
+  originalPrice: number | null;
+  stock: number;
+  imageUrl: string | null;
+  sku: string | null;
+  isActive: number | boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type Category = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  productCount: number;
+};
+
+type InventoryLog = {
+  id: number;
+  productId: number;
+  productName: string;
+  sku: string | null;
+  changeAmount: number;
+  previousStock: number;
+  newStock: number;
+  reason: string;
+  createdAt: string;
+};
+
+type AuditLog = {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  details: string | null;
+  createdAt: string;
+  adminEmail: string;
+};
+type Order = {
+  id: number;
+  order_number: string;
+  customer_name: string;
+  customer_email?: string;
+  customer_phone: string;
+  delivery_city?: string;
+  delivery_state?: string;
+  delivery_pincode?: string;
+  delivery_address?: string;
+  subtotal?: number;
+  delivery_fee?: number;
+  discount?: number;
+  total_amount: number;
+  payment_method: string;
+  payment_status: string;
+  status: string;
+  customer_notes?: string;
+  cancellation_reason?: string;
+  created_at: string;
+  updated_at?: string;
+  item_count?: number;
+};
+
+type OrderItem = {
+  id: number;
+  product_name: string;
+  sku?: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+};
+
+type OrderEvent = {
+  id: number;
+  old_status: string;
+  new_status: string;
+  note?: string;
+  created_at: string;
+  changed_by_email?: string;
+};
+
+type OrderDetails = Order & {
+  items: OrderItem[];
+  events: OrderEvent[];
+};
+
+type OrdersResponse = {
+  success: boolean;
+  data: Order[];
+  pagination?: { page: number; limit: number; total: number; pages: number };
+};
+
+type Dashboard = {
+  products: {
+    total: number;
+    active: number;
+    lowStock: number;
+    outOfStock: number;
+  };
+  categories: number;
+  recentLogs: InventoryLog[];
+};
+
+type ApiResult<T> = {
+  success: boolean;
+  data: T;
+  message?: string;
+  total?: number;
+};
+
+type Page =
+  | 'dashboard'
+  | 'products'
+  | 'categories'
+  | 'inventory'
+  | 'orders'
+  | 'audit';
+
+type ProductForm = {
+  name: string;
+  description: string;
+  categoryId: string;
+  price: string;
+  originalPrice: string;
+  stock: string;
+  sku: string;
+  imageUrl: string;
+};
+
+type CategoryForm = {
+  name: string;
+  description: string;
+};
+
+const emptyProductForm: ProductForm = {
+  name: '',
+  description: '',
+  categoryId: '',
+  price: '',
+  originalPrice: '',
+  stock: '0',
+  sku: '',
+  imageUrl: '',
+};
+
+const emptyCategoryForm: CategoryForm = {
+  name: '',
+  description: '',
+};
+
+async function apiRequest<T>(
+  endpoint: string,
+  token?: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const headers = new Headers(options.headers);
+
+  if (options.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers,
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      result.message || result.error || `Request failed (${response.status})`,
+    );
+  }
+
+  return result as T;
+}
+
+function formatCurrency(value: number | null | undefined) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0));
+}
+
+function formatDate(value: string | undefined) {
+  if (!value) return 'â€”';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function isActiveProduct(product: Product) {
+  return product.isActive === true || product.isActive === 1;
+}
+
+function App() {
+  const [token, setToken] = useState(
+    () => sessionStorage.getItem('riya_admin_token') || '',
+  );
+
+  const [admin, setAdmin] = useState<Admin | null>(null);
+  const [page, setPage] = useState<Page>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [inventoryLogs, setInventoryLogs] = useState<InventoryLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersSearch, setOrdersSearch] = useState('');
+  const [ordersStatusFilter, setOrdersStatusFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<OrderDetails | null>(null);
+  const [orderNote, setOrderNote] = useState('');
+  const [updatingOrder, setUpdatingOrder] = useState(false);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productForm, setProductForm] =
+    useState<ProductForm>(emptyProductForm);
+  const [savingProduct, setSavingProduct] = useState(false);
+
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryForm, setCategoryForm] =
+    useState<CategoryForm>(emptyCategoryForm);
+  const [savingCategory, setSavingCategory] = useState(false);
+
+  const [stockProduct, setStockProduct] = useState<Product | null>(null);
+  const [stockValue, setStockValue] = useState('');
+  const [stockReason, setStockReason] = useState('Stock update');
+  const [savingStock, setSavingStock] = useState(false);
+
+  const clearMessages = () => {
+    setError('');
+    setSuccess('');
+  };
+
+  const loadDashboard = useCallback(async () => {
+    const result = await apiRequest<ApiResult<Dashboard>>(
+      '/admin/dashboard',
+      token,
+    );
+    setDashboard(result.data);
+  }, [token]);
+
+  const loadProducts = useCallback(async () => {
+    const params = new URLSearchParams({
+      search,
+      status: statusFilter,
+      page: '1',
+      limit: '100',
+    });
+
+    const result = await apiRequest<ApiResult<Product[]>>(
+      `/admin/products?${params.toString()}`,
+      token,
+    );
+
+    setProducts(Array.isArray(result.data) ? result.data : []);
+  }, [token, search, statusFilter]);
+
+  const loadCategories = useCallback(async () => {
+    const result = await apiRequest<ApiResult<Category[]>>(
+      '/admin/categories',
+      token,
+    );
+
+    setCategories(Array.isArray(result.data) ? result.data : []);
+  }, [token]);
+
+  const loadInventoryLogs = useCallback(async () => {
+    const result = await apiRequest<ApiResult<InventoryLog[]>>(
+      '/admin/inventory/logs?limit=100',
+      token,
+    );
+
+    setInventoryLogs(Array.isArray(result.data) ? result.data : []);
+  }, [token]);
+
+  const loadAuditLogs = useCallback(async () => {
+    const result = await apiRequest<ApiResult<AuditLog[]>>(
+      '/admin/audit-logs?limit=100',
+      token,
+    );
+
+    setAuditLogs(Array.isArray(result.data) ? result.data : []);
+  }, [token]);
+
+  const loadOrders = useCallback(async () => {
+    const params = new URLSearchParams({
+      search: ordersSearch.trim(),
+      status: ordersStatusFilter,
+      page: '1',
+      limit: '100',
+    });
+    const result = await apiRequest<OrdersResponse>(
+      `/admin/orders?${params.toString()}`,
+      token,
+    );
+    setOrders(Array.isArray(result.data) ? result.data : []);
+    setOrdersTotal(result.pagination?.total ?? result.data?.length ?? 0);
+  }, [token, ordersSearch, ordersStatusFilter]);
+
+  async function openOrderDetails(order: Order) {
+    clearMessages();
+    setOrderNote('');
+    try {
+      const result = await apiRequest<ApiResult<OrderDetails>>(
+        `/admin/orders/${order.id}`,
+        token,
+      );
+      setSelectedOrder(result.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load order details.');
+    }
+  }
+
+  async function updateOrderStatus(nextStatus: string) {
+    if (!selectedOrder || updatingOrder) return;
+    if (nextStatus === 'Cancelled' && !orderNote.trim()) {
+      setError('Please enter a cancellation reason.');
+      return;
+    }
+    setUpdatingOrder(true);
+    clearMessages();
+    try {
+      await apiRequest(`/admin/orders/${selectedOrder.id}/status`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: nextStatus,
+          note: orderNote.trim(),
+          cancellation_reason: nextStatus === 'Cancelled' ? orderNote.trim() : '',
+        }),
+      });
+      setSuccess(`Order ${selectedOrder.order_number} updated to ${nextStatus}.`);
+      setSelectedOrder(null);
+      setOrderNote('');
+      await loadOrders();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update order status.');
+    } finally {
+      setUpdatingOrder(false);
+    }
+  }
+
+  const loadCurrentPage = useCallback(async () => {
+    if (!token) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (page === 'dashboard') {
+        await loadDashboard();
+      } else if (page === 'products') {
+        await Promise.all([loadProducts(), loadCategories()]);
+      } else if (page === 'categories') {
+        await loadCategories();
+      } else if (page === 'inventory') {
+        await Promise.all([loadInventoryLogs(), loadProducts()]);
+      } else if (page === 'orders') {
+        await loadOrders();
+      } else if (page === 'audit') {
+        await loadAuditLogs();
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Unable to load admin data.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    token,
+    page,
+    loadDashboard,
+    loadProducts,
+    loadCategories,
+    loadInventoryLogs,
+    loadOrders,
+    loadAuditLogs,
+  ]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let cancelled = false;
+
+    apiRequest<ApiResult<Admin>>('/admin/me', token)
+      .then((result) => {
+        if (!cancelled) setAdmin(result.data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          sessionStorage.removeItem('riya_admin_token');
+          setToken('');
+          setAdmin(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (token && admin) {
+      void loadCurrentPage();
+    }
+  }, [token, admin, loadCurrentPage]);
+
+  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    clearMessages();
+    setLoginLoading(true);
+
+    try {
+      const result = await apiRequest<
+        ApiResult<{ token: string; admin: Admin }>
+      >('/admin/login', undefined, {
+        method: 'POST',
+        body: JSON.stringify({
+          email: loginEmail.trim(),
+          password: loginPassword,
+        }),
+      });
+
+      sessionStorage.setItem('riya_admin_token', result.data.token);
+      setToken(result.data.token);
+      setAdmin(result.data.admin);
+      setLoginPassword('');
+      setSuccess('Login successful.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed.');
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem('riya_admin_token');
+    setToken('');
+    setAdmin(null);
+    setDashboard(null);
+    setProducts([]);
+    setCategories([]);
+    setInventoryLogs([]);
+    setAuditLogs([]);
+    setOrders([]);
+    setOrdersTotal(0);
+    setSelectedOrder(null);
+    setPage('dashboard');
+    clearMessages();
+  }
+
+  function navigate(nextPage: Page) {
+    setPage(nextPage);
+    setSidebarOpen(false);
+    clearMessages();
+  }
+
+  function openAddProduct() {
+    setEditingProduct(null);
+    setProductForm(emptyProductForm);
+    setProductModalOpen(true);
+    clearMessages();
+  }
+
+  function openEditProduct(product: Product) {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      description: product.description || '',
+      categoryId: String(product.categoryId),
+      price: String(product.price),
+      originalPrice:
+        product.originalPrice === null ? '' : String(product.originalPrice),
+      stock: String(product.stock),
+      sku: product.sku || '',
+      imageUrl: product.imageUrl || '',
+    });
+    setProductModalOpen(true);
+    clearMessages();
+  }
+
+  async function saveProduct(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    clearMessages();
+
+    if (!productForm.name.trim()) {
+      setError('Product name is required.');
+      return;
+    }
+
+    if (!productForm.categoryId) {
+      setError('Please select a category.');
+      return;
+    }
+
+    const price = Number(productForm.price);
+    const originalPrice =
+      productForm.originalPrice.trim() === ''
+        ? null
+        : Number(productForm.originalPrice);
+    const stock = Number(productForm.stock);
+
+    if (!Number.isFinite(price) || price < 0) {
+      setError('Enter a valid product price.');
+      return;
+    }
+
+    if (
+      originalPrice !== null &&
+      (!Number.isFinite(originalPrice) || originalPrice < price)
+    ) {
+      setError('Original price must be greater than or equal to selling price.');
+      return;
+    }
+
+    if (!Number.isInteger(stock) || stock < 0) {
+      setError('Stock must be a whole number greater than or equal to zero.');
+      return;
+    }
+
+    const payload = {
+      name: productForm.name.trim(),
+      description: productForm.description.trim(),
+      categoryId: Number(productForm.categoryId),
+      price,
+      originalPrice,
+      stock,
+      sku: productForm.sku.trim(),
+      imageUrl: productForm.imageUrl.trim(),
+    };
+
+    setSavingProduct(true);
+
+    try {
+      if (editingProduct) {
+        await apiRequest(
+          `/admin/products/${editingProduct.id}`,
+          token,
+          {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+          },
+        );
+
+        setSuccess('Product updated successfully.');
+      } else {
+        await apiRequest('/admin/products', token, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+
+        setSuccess('Product created successfully.');
+      }
+
+      setProductModalOpen(false);
+      await Promise.all([loadProducts(), loadDashboard()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save product.');
+    } finally {
+      setSavingProduct(false);
+    }
+  }
+
+  async function toggleProductStatus(product: Product) {
+    clearMessages();
+
+    const nextStatus = !isActiveProduct(product);
+
+    try {
+      await apiRequest(`/admin/products/${product.id}/status`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: nextStatus }),
+      });
+
+      setSuccess(
+        nextStatus ? 'Product activated.' : 'Product deactivated.',
+      );
+
+      await Promise.all([loadProducts(), loadDashboard()]);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Unable to update product status.',
+      );
+    }
+  }
+
+  function openStockModal(product: Product) {
+    setStockProduct(product);
+    setStockValue(String(product.stock));
+    setStockReason('Stock update');
+    clearMessages();
+  }
+
+  async function saveStock(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!stockProduct) return;
+
+    const newStock = Number(stockValue);
+
+    if (!Number.isInteger(newStock) || newStock < 0) {
+      setError('Enter a valid whole-number stock quantity.');
+      return;
+    }
+
+    if (!stockReason.trim()) {
+      setError('Please enter a stock update reason.');
+      return;
+    }
+
+    setSavingStock(true);
+    clearMessages();
+
+    try {
+      await apiRequest(`/admin/products/${stockProduct.id}/stock`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          stock: newStock,
+          reason: stockReason.trim(),
+        }),
+      });
+
+      setStockProduct(null);
+      setSuccess('Stock updated successfully.');
+
+      await Promise.all([
+        loadProducts(),
+        loadInventoryLogs(),
+        loadDashboard(),
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update stock.');
+    } finally {
+      setSavingStock(false);
+    }
+  }
+
+  function openAddCategory() {
+    setEditingCategory(null);
+    setCategoryForm(emptyCategoryForm);
+    setCategoryModalOpen(true);
+    clearMessages();
+  }
+
+  function openEditCategory(category: Category) {
+    setEditingCategory(category);
+    setCategoryForm({
+      name: category.name,
+      description: category.description || '',
+    });
+    setCategoryModalOpen(true);
+    clearMessages();
+  }
+
+  async function saveCategory(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    clearMessages();
+
+    if (!categoryForm.name.trim()) {
+      setError('Category name is required.');
+      return;
+    }
+
+    setSavingCategory(true);
+
+    try {
+      const payload = {
+        name: categoryForm.name.trim(),
+        description: categoryForm.description.trim(),
+      };
+
+      if (editingCategory) {
+        await apiRequest(
+          `/admin/categories/${editingCategory.id}`,
+          token,
+          {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+          },
+        );
+
+        setSuccess('Category updated successfully.');
+      } else {
+        await apiRequest('/admin/categories', token, {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+
+        setSuccess('Category created successfully.');
+      }
+
+      setCategoryModalOpen(false);
+      await Promise.all([loadCategories(), loadDashboard()]);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Unable to save category.',
+      );
+    } finally {
+      setSavingCategory(false);
+    }
+  }
+
+  if (!token || !admin) {
+    return (
+      <div className="login-page">
+        <div className="login-decoration login-decoration-one" />
+        <div className="login-decoration login-decoration-two" />
+
+        <div className="login-card">
+          <div className="login-brand">
+            <div className="login-brand-icon">
+              <ShoppingBag size={27} />
+            </div>
+            <div>
+              <h1>RIYA</h1>
+              <span>QUICK COMMERCE</span>
+            </div>
+          </div>
+
+          <div className="login-heading">
+            <span className="eyebrow">ADMINISTRATION</span>
+            <h2>Welcome back</h2>
+            <p>Sign in to manage your store and operations.</p>
+          </div>
+
+          {error && (
+            <div className="alert alert-error">
+              <CircleAlert size={18} />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="login-form">
+            <label htmlFor="login-email">Email address</label>
+            <input
+              id="login-email"
+              type="email"
+              value={loginEmail}
+              onChange={(event) => setLoginEmail(event.target.value)}
+              placeholder="admin@example.com"
+              autoComplete="username"
+              required
+            />
+
+            <label htmlFor="login-password">Password</label>
+            <div className="password-field">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              className="primary-button login-submit"
+              disabled={loginLoading}
+            >
+              {loginLoading ? (
+                <>
+                  <RefreshCw size={17} className="spin" />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={18} />
+                  Sign in to dashboard
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="login-security">
+            <ShieldCheck size={16} />
+            <span>Protected admin access</span>
+          </div>
+        </div>
+
+        <div className="login-footer">
+          Â© {new Date().getFullYear()} Riya Quick Commerce
+        </div>
+      </div>
+    );
+  }
+
+  const pageTitles: Record<Page, string> = {
+    dashboard: 'Dashboard',
+    products: 'Products',
+    categories: 'Categories',
+    inventory: 'Inventory',
+    orders: 'Orders',
+    audit: 'Audit logs',
+  };
+
+  return (
+    <div className="admin-app">
+      {sidebarOpen && (
+        <button
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+          aria-label="Close navigation"
+        />
+      )}
+
+      <aside className={`admin-sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
+        <div className="sidebar-brand">
+          <div className="brand-mark">
+            <ShoppingBag size={23} />
+          </div>
+          <div>
+            <strong>RIYA</strong>
+            <span>QUICK COMMERCE</span>
+          </div>
+          <button
+            className="mobile-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="sidebar-label">WORKSPACE</div>
+
+        <nav className="sidebar-nav">
+          <button
+            className={page === 'dashboard' ? 'nav-item active' : 'nav-item'}
+            onClick={() => navigate('dashboard')}
+          >
+            <LayoutDashboard size={19} />
+            <span>Dashboard</span>
+          </button>
+
+          <button
+            className={page === 'products' ? 'nav-item active' : 'nav-item'}
+            onClick={() => navigate('products')}
+          >
+            <Package size={19} />
+            <span>Products</span>
+          </button>
+
+          <button
+            className={page === 'categories' ? 'nav-item active' : 'nav-item'}
+            onClick={() => navigate('categories')}
+          >
+            <Tag size={19} />
+            <span>Categories</span>
+          </button>
+
+          <button
+            className={page === 'inventory' ? 'nav-item active' : 'nav-item'}
+            onClick={() => navigate('inventory')}
+          >
+            <Warehouse size={19} />
+            <span>Inventory</span>
+          </button>
+
+          <button
+            className={page === 'orders' ? 'nav-item active' : 'nav-item'}
+            onClick={() => navigate('orders')}
+          >
+            <Truck size={19} />
+            <span>Orders</span>
+          </button>
+
+          <button
+            className={page === 'audit' ? 'nav-item active' : 'nav-item'}
+            onClick={() => navigate('audit')}
+          >
+            <ClipboardList size={19} />
+            <span>Audit logs</span>
+          </button>
+        </nav>
+
+        <div className="sidebar-label sidebar-label-bottom">STORE</div>
+
+        <div className="sidebar-store-card">
+          <div className="store-card-icon">
+            <Activity size={18} />
+          </div>
+          <div>
+            <strong>Store system</strong>
+            <span>Admin connected</span>
+          </div>
+          <span className="online-dot" />
+        </div>
+
+        <div className="sidebar-user">
+          <div className="user-avatar">
+            {(admin.email || 'A').charAt(0).toUpperCase()}
+          </div>
+          <div className="user-info">
+            <strong>Administrator</strong>
+            <span>{admin.email}</span>
+          </div>
+          <button
+            className="logout-icon"
+            onClick={handleLogout}
+            title="Logout"
+            aria-label="Logout"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </aside>
+
+      <main className="admin-main">
+        <header className="admin-topbar">
+          <div className="topbar-left">
+            <button
+              className="mobile-menu"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu size={22} />
+            </button>
+            <div>
+              <div className="breadcrumb">Riya Store / {pageTitles[page]}</div>
+              <h1>{pageTitles[page]}</h1>
+            </div>
+          </div>
+
+          <div className="topbar-actions">
+            <span className="admin-status">
+              <span className="online-dot" />
+              System online
+            </span>
+            <button
+              className="icon-button"
+              onClick={() => void loadCurrentPage()}
+              title="Refresh data"
+              aria-label="Refresh data"
+              disabled={loading}
+            >
+              <RefreshCw size={18} className={loading ? 'spin' : ''} />
+            </button>
+            <div className="topbar-avatar">
+              {(admin.email || 'A').charAt(0).toUpperCase()}
+            </div>
+          </div>
+        </header>
+
+        <div className="admin-content">
+          {error && (
+            <div className="alert alert-error">
+              <CircleAlert size={18} />
+              <span>{error}</span>
+              <button onClick={() => setError('')} aria-label="Dismiss error">
+                <X size={17} />
+              </button>
+            </div>
+          )}
+
+          {success && (
+            <div className="alert alert-success">
+              <Check size={18} />
+              <span>{success}</span>
+              <button
+                onClick={() => setSuccess('')}
+                aria-label="Dismiss message"
+              >
+                <X size={17} />
+              </button>
+            </div>
+          )}
+
+          {loading && (
+            <div className="loading-line">
+              <RefreshCw size={17} className="spin" />
+              Loading data...
+            </div>
+          )}
+
+          {page === 'dashboard' && (
+            <section className="page-section">
+              <div className="welcome-row">
+                <div>
+                  <span className="eyebrow">STORE OVERVIEW</span>
+                  <h2>Good to see you, Admin</h2>
+                  <p>Here is what is happening with your store today.</p>
+                </div>
+                <button
+                  className="secondary-button"
+                  onClick={() => void loadDashboard()}
+                >
+                  <RefreshCw size={16} />
+                  Refresh overview
+                </button>
+              </div>
+
+              <div className="stats-grid">
+                <StatCard
+                  title="Total products"
+                  value={dashboard?.products.total ?? 0}
+                  icon={<Package size={21} />}
+                  tone="green"
+                  description="Products in your catalogue"
+                />
+                <StatCard
+                  title="Active products"
+                  value={dashboard?.products.active ?? 0}
+                  icon={<Check size={21} />}
+                  tone="blue"
+                  description="Visible products"
+                />
+                <StatCard
+                  title="Low stock"
+                  value={dashboard?.products.lowStock ?? 0}
+                  icon={<AlertTriangle size={21} />}
+                  tone="orange"
+                  description="Products needing attention"
+                />
+                <StatCard
+                  title="Out of stock"
+                  value={dashboard?.products.outOfStock ?? 0}
+                  icon={<Archive size={21} />}
+                  tone="red"
+                  description="Products with zero stock"
+                />
+              </div>
+
+              <div className="dashboard-grid">
+                <div className="panel quick-actions-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h3>Quick actions</h3>
+                      <p>Manage your store efficiently</p>
+                    </div>
+                  </div>
+
+                  <div className="quick-actions">
+                    <button
+                      className="quick-action"
+                      onClick={() => {
+                        navigate('products');
+                        openAddProduct();
+                      }}
+                    >
+                      <span className="quick-action-icon green">
+                        <Plus size={20} />
+                      </span>
+                      <span>
+                        <strong>Add product</strong>
+                        <small>Create a new catalogue item</small>
+                      </span>
+                    </button>
+
+                    <button
+                      className="quick-action"
+                      onClick={() => navigate('products')}
+                    >
+                      <span className="quick-action-icon blue">
+                        <Package size={20} />
+                      </span>
+                      <span>
+                        <strong>Manage products</strong>
+                        <small>Edit prices and product details</small>
+                      </span>
+                    </button>
+
+                    <button
+                      className="quick-action"
+                      onClick={() => navigate('categories')}
+                    >
+                      <span className="quick-action-icon purple">
+                        <Tag size={20} />
+                      </span>
+                      <span>
+                        <strong>Manage categories</strong>
+                        <small>Organise your catalogue</small>
+                      </span>
+                    </button>
+
+                    <button
+                      className="quick-action"
+                      onClick={() => navigate('inventory')}
+                    >
+                      <span className="quick-action-icon orange">
+                        <Boxes size={20} />
+                      </span>
+                      <span>
+                        <strong>Update inventory</strong>
+                        <small>Review stock movement</small>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="panel category-summary-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h3>Catalogue summary</h3>
+                      <p>Your store at a glance</p>
+                    </div>
+                    <Tag size={20} />
+                  </div>
+
+                  <div className="summary-number">
+                    {dashboard?.categories ?? categories.length}
+                  </div>
+                  <div className="summary-caption">Total categories</div>
+
+                  <div className="summary-divider" />
+
+                  <div className="summary-row">
+                    <span>Active products</span>
+                    <strong>{dashboard?.products.active ?? 0}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>Low stock products</span>
+                    <strong>{dashboard?.products.lowStock ?? 0}</strong>
+                  </div>
+                  <div className="summary-row">
+                    <span>Out of stock products</span>
+                    <strong>{dashboard?.products.outOfStock ?? 0}</strong>
+                  </div>
+
+                  <button
+                    className="text-link"
+                    onClick={() => navigate('products')}
+                  >
+                    View products <ArrowUp size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Recent inventory activity</h3>
+                    <p>Latest stock changes in your store</p>
+                  </div>
+                  <button
+                    className="text-link"
+                    onClick={() => navigate('inventory')}
+                  >
+                    View all <ArrowUp size={15} />
+                  </button>
+                </div>
+
+                <InventoryTable
+                  logs={dashboard?.recentLogs ?? []}
+                  compact
+                />
+              </div>
+            </section>
+          )}
+
+          {page === 'products' && (
+            <section className="page-section">
+              <div className="section-toolbar">
+                <div>
+                  <h2>Product catalogue</h2>
+                  <p>Manage product details, prices and availability.</p>
+                </div>
+                <button className="primary-button" onClick={openAddProduct}>
+                  <Plus size={18} />
+                  Add product
+                </button>
+              </div>
+
+              <div className="panel">
+                <div className="table-toolbar">
+                  <div className="search-box">
+                    <Search size={18} />
+                    <input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search products by name or SKU..."
+                    />
+                  </div>
+
+                  <select
+                    className="filter-select"
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    aria-label="Filter products by status"
+                  >
+                    <option value="all">All products</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((product) => (
+                        <tr key={product.id}>
+                          <td>
+                            <div className="product-cell">
+                              <div className="product-thumbnail">
+                                {product.imageUrl ? (
+                                  <img
+                                    src={product.imageUrl}
+                                    alt={product.name}
+                                  />
+                                ) : (
+                                  <Package size={21} />
+                                )}
+                              </div>
+                              <div>
+                                <strong>{product.name}</strong>
+                                <small>#{product.id}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>{product.sku || 'â€”'}</td>
+                          <td>{product.category || 'â€”'}</td>
+                          <td>
+                            <strong>{formatCurrency(product.price)}</strong>
+                            {product.originalPrice !== null &&
+                              product.originalPrice > product.price && (
+                                <small className="old-price">
+                                  {formatCurrency(product.originalPrice)}
+                                </small>
+                              )}
+                          </td>
+                          <td>
+                            <span
+                              className={
+                                product.stock === 0
+                                  ? 'stock-value danger'
+                                  : product.stock <= 10
+                                    ? 'stock-value warning'
+                                    : 'stock-value'
+                              }
+                            >
+                              {product.stock}
+                            </span>
+                          </td>
+                          <td>
+                            <span
+                              className={
+                                isActiveProduct(product)
+                                  ? 'status-pill status-active'
+                                  : 'status-pill status-inactive'
+                              }
+                            >
+                              {isActiveProduct(product) ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="action-buttons">
+                              <button
+                                className="table-action"
+                                onClick={() => openEditProduct(product)}
+                                title="Edit product"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                className="table-action"
+                                onClick={() => openStockModal(product)}
+                                title="Update stock"
+                              >
+                                <Boxes size={16} />
+                              </button>
+                              <button
+                                className="table-action"
+                                onClick={() => void toggleProductStatus(product)}
+                                title={
+                                  isActiveProduct(product)
+                                    ? 'Deactivate'
+                                    : 'Activate'
+                                }
+                              >
+                                {isActiveProduct(product) ? (
+                                  <EyeOff size={16} />
+                                ) : (
+                                  <Check size={16} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {products.length === 0 && !loading && (
+                        <tr>
+                          <td colSpan={7}>
+                            <EmptyState
+                              title="No products found"
+                              description="Try another search or add your first product."
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="table-footer">
+                  Showing {products.length} products
+                </div>
+              </div>
+            </section>
+          )}
+
+          {page === 'categories' && (
+            <section className="page-section">
+              <div className="section-toolbar">
+                <div>
+                  <h2>Product categories</h2>
+                  <p>Organise products into easy-to-browse groups.</p>
+                </div>
+                <button className="primary-button" onClick={openAddCategory}>
+                  <Plus size={18} />
+                  Add category
+                </button>
+              </div>
+
+              <div className="category-grid">
+                {categories.map((category) => (
+                  <div className="category-card" key={category.id}>
+                    <div className="category-card-top">
+                      <div className="category-icon">
+                        <Tag size={22} />
+                      </div>
+                      <button
+                        className="table-action"
+                        onClick={() => openEditCategory(category)}
+                        title="Edit category"
+                      >
+                        <Eye size={17} />
+                      </button>
+                    </div>
+
+                    <h3>{category.name}</h3>
+                    <p>{category.description || 'No description added.'}</p>
+
+                    <div className="category-card-footer">
+                      <span>
+                        <Package size={15} />
+                        {category.productCount} products
+                      </span>
+                      <span className="category-id">#{category.id}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {categories.length === 0 && !loading && (
+                  <EmptyState
+                    title="No categories found"
+                    description="Create your first category to organise products."
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
+          {page === 'inventory' && (
+            <section className="page-section">
+              <div className="section-toolbar">
+                <div>
+                  <h2>Inventory management</h2>
+                  <p>Monitor stock levels and track inventory movements.</p>
+                </div>
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    void loadProducts();
+                    void loadInventoryLogs();
+                  }}
+                >
+                  <RefreshCw size={16} />
+                  Refresh
+                </button>
+              </div>
+
+              <div className="stats-grid inventory-stats">
+                <StatCard
+                  title="Total products"
+                  value={products.length}
+                  icon={<Package size={21} />}
+                  tone="green"
+                  description="Loaded catalogue products"
+                />
+                <StatCard
+                  title="Total units"
+                  value={products.reduce((sum, item) => sum + item.stock, 0)}
+                  icon={<Boxes size={21} />}
+                  tone="blue"
+                  description="Current stock quantity"
+                />
+                <StatCard
+                  title="Low stock"
+                  value={products.filter((item) => item.stock > 0 && item.stock <= 10).length}
+                  icon={<AlertTriangle size={21} />}
+                  tone="orange"
+                  description="10 units or fewer"
+                />
+                <StatCard
+                  title="Out of stock"
+                  value={products.filter((item) => item.stock === 0).length}
+                  icon={<Archive size={21} />}
+                  tone="red"
+                  description="Requires replenishment"
+                />
+              </div>
+
+              <div className="panel inventory-products-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Current stock</h3>
+                    <p>Choose a product to adjust its inventory.</p>
+                  </div>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Current stock</th>
+                        <th>Stock status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.map((product) => (
+                        <tr key={product.id}>
+                          <td>
+                            <strong>{product.name}</strong>
+                          </td>
+                          <td>{product.sku || 'â€”'}</td>
+                          <td>
+                            <strong>{product.stock}</strong>
+                          </td>
+                          <td>
+                            <StockBadge stock={product.stock} />
+                          </td>
+                          <td>
+                            <button
+                              className="small-outline-button"
+                              onClick={() => openStockModal(product)}
+                            >
+                              <Boxes size={15} />
+                              Adjust stock
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {products.length === 0 && (
+                        <tr>
+                          <td colSpan={5}>
+                            <EmptyState
+                              title="No inventory"
+                              description="Products will appear here when available."
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <h3>Inventory movement history</h3>
+                    <p>Recorded stock adjustments.</p>
+                  </div>
+                </div>
+                <InventoryTable logs={inventoryLogs} />
+              </div>
+            </section>
+          )}
+
+          {page === 'orders' && (
+            <section className="page-section">
+              <div className="section-toolbar">
+                <div>
+                  <h2>Order management</h2>
+                  <p>Review customer orders and manage fulfilment progress.</p>
+                </div>
+                <button className="secondary-button" onClick={() => void loadOrders()} disabled={loading}>
+                  <RefreshCw size={16} /> Refresh orders
+                </button>
+              </div>
+
+              <div className="stats-grid">
+                <StatCard title="Total orders" value={ordersTotal} icon={<ShoppingBag size={21} />} tone="blue" description="Orders matching current filter" />
+                <StatCard title="Placed" value={orders.filter((o) => o.status === 'Placed').length} icon={<ClipboardList size={21} />} tone="orange" description="Awaiting confirmation" />
+                <StatCard title="In progress" value={orders.filter((o) => ['Confirmed', 'Packed', 'Ready for Dispatch', 'Out for Delivery'].includes(o.status)).length} icon={<Truck size={21} />} tone="green" description="Being fulfilled or delivered" />
+                <StatCard title="Delivered" value={orders.filter((o) => o.status === 'Delivered').length} icon={<Check size={21} />} tone="blue" description="Successfully completed" />
+              </div>
+
+              <div className="panel">
+                <div className="table-toolbar">
+                  <div className="search-box">
+                    <Search size={18} />
+                    <input value={ordersSearch} onChange={(event) => setOrdersSearch(event.target.value)} placeholder="Search order number, customer or phone..." />
+                  </div>
+                  <select className="filter-select" value={ordersStatusFilter} onChange={(event) => setOrdersStatusFilter(event.target.value)} aria-label="Filter orders by status">
+                    <option value="all">All statuses</option>
+                    {['Placed', 'Confirmed', 'Packed', 'Ready for Dispatch', 'Out for Delivery', 'Delivered', 'Cancelled'].map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                  <button className="small-outline-button" onClick={() => { setOrdersSearch(''); setOrdersStatusFilter('all'); }}>Clear filters</button>
+                </div>
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead><tr><th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Placed on</th><th>Action</th></tr></thead>
+                    <tbody>
+                      {orders.map((order) => (
+                        <tr key={order.id}>
+                          <td><strong>{order.order_number}</strong><small className="table-subtext">#{order.id}</small></td>
+                          <td><strong>{order.customer_name}</strong><small className="table-subtext">{order.customer_phone}</small></td>
+                          <td>{order.item_count ?? 'â€”'}</td>
+                          <td><strong>{formatCurrency(order.total_amount)}</strong></td>
+                          <td>{order.payment_method}<small className="table-subtext">{order.payment_status}</small></td>
+                          <td><span className={`status-pill ${order.status === 'Delivered' ? 'status-active' : order.status === 'Cancelled' ? 'status-inactive' : 'status-warning'}`}>{order.status}</span></td>
+                          <td>{formatDate(order.created_at)}</td>
+                          <td><button className="small-outline-button" onClick={() => void openOrderDetails(order)}><Eye size={15} /> View</button></td>
+                        </tr>
+                      ))}
+                      {orders.length === 0 && !loading && <tr><td colSpan={8}><EmptyState title="No orders found" description="New customer orders will appear here." /></td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="table-footer">Showing {orders.length} of {ordersTotal} orders</div>
+              </div>
+            </section>
+          )}
+
+          {page === 'audit' && (
+            <section className="page-section">
+              <div className="section-toolbar">
+                <div>
+                  <h2>Audit trail</h2>
+                  <p>Review administrative actions recorded by the system.</p>
+                </div>
+                <button
+                  className="secondary-button"
+                  onClick={() => void loadAuditLogs()}
+                >
+                  <RefreshCw size={16} />
+                  Refresh logs
+                </button>
+              </div>
+
+              <div className="panel">
+                <div className="table-responsive">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Entity ID</th>
+                        <th>Details</th>
+                        <th>Admin</th>
+                        <th>Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map((log) => (
+                        <tr key={log.id}>
+                          <td>
+                            <span className="audit-action">{log.action}</span>
+                          </td>
+                          <td>{log.entityType}</td>
+                          <td>{log.entityId ?? 'â€”'}</td>
+                          <td className="audit-details">
+                            {log.details || 'â€”'}
+                          </td>
+                          <td>{log.adminEmail || 'â€”'}</td>
+                          <td>{formatDate(log.createdAt)}</td>
+                        </tr>
+                      ))}
+
+                      {auditLogs.length === 0 && !loading && (
+                        <tr>
+                          <td colSpan={6}>
+                            <EmptyState
+                              title="No audit records"
+                              description="Administrative activity will appear here."
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="table-footer">
+                  Showing {auditLogs.length} audit records
+                </div>
+              </div>
+            </section>
+          )}
+
+          <footer className="admin-footer">
+            <span>Â© {new Date().getFullYear()} Riya Quick Commerce</span>
+            <span>
+              <ShieldCheck size={14} />
+              Secure admin workspace
+            </span>
+          </footer>
+        </div>
+      </main>
+
+      {productModalOpen && (
+        <Modal
+          title={editingProduct ? 'Edit product' : 'Add new product'}
+          subtitle="Enter the product information below."
+          onClose={() => setProductModalOpen(false)}
+        >
+          <form className="modal-form" onSubmit={saveProduct}>
+            <div className="form-field">
+              <label htmlFor="product-name">Product name *</label>
+              <input
+                id="product-name"
+                value={productForm.name}
+                onChange={(event) =>
+                  setProductForm({ ...productForm, name: event.target.value })
+                }
+                placeholder="e.g. Smart LED Bulb"
+                maxLength={150}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="product-description">Description</label>
+              <textarea
+                id="product-description"
+                value={productForm.description}
+                onChange={(event) =>
+                  setProductForm({
+                    ...productForm,
+                    description: event.target.value,
+                  })
+                }
+                placeholder="Describe your product..."
+                rows={3}
+                maxLength={2000}
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label htmlFor="product-category">Category *</label>
+                <select
+                  id="product-category"
+                  value={productForm.categoryId}
+                  onChange={(event) =>
+                    setProductForm({
+                      ...productForm,
+                      categoryId: event.target.value,
+                    })
+                  }
+                  required
+                >
+                  <option value="">Select category</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="product-sku">SKU</label>
+                <input
+                  id="product-sku"
+                  value={productForm.sku}
+                  onChange={(event) =>
+                    setProductForm({ ...productForm, sku: event.target.value })
+                  }
+                  placeholder="Product SKU"
+                  maxLength={80}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label htmlFor="product-price">Selling price (â‚¹) *</label>
+                <input
+                  id="product-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={productForm.price}
+                  onChange={(event) =>
+                    setProductForm({ ...productForm, price: event.target.value })
+                  }
+                  placeholder="0"
+                  required
+                />
+              </div>
+
+              <div className="form-field">
+                <label htmlFor="product-original-price">Original price (â‚¹)</label>
+                <input
+                  id="product-original-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={productForm.originalPrice}
+                  onChange={(event) =>
+                    setProductForm({
+                      ...productForm,
+                      originalPrice: event.target.value,
+                    })
+                  }
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            {!editingProduct && (
+              <div className="form-field">
+                <label htmlFor="product-stock">Initial stock *</label>
+                <input
+                  id="product-stock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={productForm.stock}
+                  onChange={(event) =>
+                    setProductForm({ ...productForm, stock: event.target.value })
+                  }
+                  required
+                />
+              </div>
+            )}
+
+            <div className="form-field">
+              <label htmlFor="product-image">Product image URL</label>
+              <input
+                id="product-image"
+                type="url"
+                value={productForm.imageUrl}
+                onChange={(event) =>
+                  setProductForm({
+                    ...productForm,
+                    imageUrl: event.target.value,
+                  })
+                }
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setProductModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={savingProduct}
+              >
+                {savingProduct ? 'Saving...' : 'Save product'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {categoryModalOpen && (
+        <Modal
+          title={editingCategory ? 'Edit category' : 'Add category'}
+          subtitle="Create and organise your product categories."
+          onClose={() => setCategoryModalOpen(false)}
+        >
+          <form className="modal-form" onSubmit={saveCategory}>
+            <div className="form-field">
+              <label htmlFor="category-name">Category name *</label>
+              <input
+                id="category-name"
+                value={categoryForm.name}
+                onChange={(event) =>
+                  setCategoryForm({ ...categoryForm, name: event.target.value })
+                }
+                placeholder="e.g. Electronics"
+                maxLength={100}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="category-description">Description</label>
+              <textarea
+                id="category-description"
+                value={categoryForm.description}
+                onChange={(event) =>
+                  setCategoryForm({
+                    ...categoryForm,
+                    description: event.target.value,
+                  })
+                }
+                placeholder="Describe this category..."
+                rows={4}
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setCategoryModalOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={savingCategory}
+              >
+                {savingCategory ? 'Saving...' : 'Save category'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {selectedOrder && (
+        <Modal
+          title={`Order ${selectedOrder.order_number}`}
+          subtitle={`Placed ${formatDate(selectedOrder.created_at)} Â· ${selectedOrder.status}`}
+          onClose={() => setSelectedOrder(null)}
+        >
+          <div className="modal-form">
+            <div className="panel-heading"><div><h3>Customer details</h3><p>{selectedOrder.customer_name}</p></div></div>
+            <p><Phone size={15} /> {selectedOrder.customer_phone} {selectedOrder.customer_email ? `Â· ${selectedOrder.customer_email}` : ''}</p>
+            <p><MapPin size={15} /> {[selectedOrder.delivery_address, selectedOrder.delivery_city, selectedOrder.delivery_state, selectedOrder.delivery_pincode].filter(Boolean).join(', ') || 'Address not provided'}</p>
+            {selectedOrder.customer_notes && <p><strong>Customer note:</strong> {selectedOrder.customer_notes}</p>}
+            <div className="panel-heading"><div><h3>Order items</h3></div></div>
+            <div className="table-responsive"><table className="data-table"><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>
+              {(selectedOrder.items || []).map((item) => <tr key={item.id}><td><strong>{item.product_name}</strong><small className="table-subtext">{item.sku || ''}</small></td><td>{item.quantity}</td><td>{formatCurrency(item.unit_price)}</td><td>{formatCurrency(item.line_total)}</td></tr>)}
+              {(selectedOrder.items || []).length === 0 && <tr><td colSpan={4}>No item details available.</td></tr>}
+            </tbody></table></div>
+            <div className="stock-current-box"><div className="summary-row"><span>Subtotal</span><strong>{formatCurrency(selectedOrder.subtotal)}</strong></div><div className="summary-row"><span>Delivery fee</span><strong>{formatCurrency(selectedOrder.delivery_fee)}</strong></div><div className="summary-row"><span>Discount</span><strong>{formatCurrency(selectedOrder.discount)}</strong></div><div className="summary-row"><span>Total</span><strong>{formatCurrency(selectedOrder.total_amount)}</strong></div><div className="summary-row"><span>Payment</span><strong>{selectedOrder.payment_method} Â· {selectedOrder.payment_status}</strong></div></div>
+            {selectedOrder.cancellation_reason && <p><strong>Cancellation reason:</strong> {selectedOrder.cancellation_reason}</p>}
+            <div className="panel-heading"><div><h3>Order timeline</h3><p>Status changes recorded by the system</p></div></div>
+            {(selectedOrder.events || []).map((event) => <div className="summary-row" key={event.id}><span>{event.old_status || 'Created'} â†’ <strong>{event.new_status}</strong><small className="table-subtext">{event.note || ''} Â· {formatDate(event.created_at)}</small></span><small>{event.changed_by_email || 'System'}</small></div>)}
+            {!['Delivered', 'Cancelled', 'Out for Delivery'].includes(selectedOrder.status) && (
+              <>
+                <div className="form-field"><label htmlFor="order-note">Update note / cancellation reason</label><textarea id="order-note" rows={3} value={orderNote} onChange={(event) => setOrderNote(event.target.value)} placeholder="Add an optional note. Required when cancelling." /></div>
+                <div className="modal-actions" style={{ flexWrap: 'wrap' }}>
+                  {selectedOrder.status === 'Placed' && <button className="primary-button" disabled={updatingOrder} onClick={() => void updateOrderStatus('Confirmed')}>Confirm order</button>}
+                  {selectedOrder.status === 'Confirmed' && <button className="primary-button" disabled={updatingOrder} onClick={() => void updateOrderStatus('Packed')}>Mark packed</button>}
+                  {selectedOrder.status === 'Packed' && <button className="primary-button" disabled={updatingOrder} onClick={() => void updateOrderStatus('Ready for Dispatch')}>Ready for dispatch</button>}
+                  {['Placed', 'Confirmed', 'Packed'].includes(selectedOrder.status) && <button className="secondary-button" disabled={updatingOrder || !orderNote.trim()} onClick={() => void updateOrderStatus('Cancelled')}>Cancel order</button>}
+                </div>
+              </>
+            )}
+            {selectedOrder.status === 'Out for Delivery' && <p>Delivery status is managed by the assigned rider.</p>}
+            {updatingOrder && <div className="loading-line"><RefreshCw size={16} className="spin" /> Updating order...</div>}
+          </div>
+        </Modal>
+      )}
+
+      {stockProduct && (
+        <Modal
+          title="Adjust inventory"
+          subtitle={`Update stock quantity for ${stockProduct.name}.`}
+          onClose={() => setStockProduct(null)}
+        >
+          <form className="modal-form" onSubmit={saveStock}>
+            <div className="stock-current-box">
+              <span>Current stock</span>
+              <strong>{stockProduct.stock} units</strong>
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="new-stock">New stock quantity *</label>
+              <input
+                id="new-stock"
+                type="number"
+                min="0"
+                step="1"
+                value={stockValue}
+                onChange={(event) => setStockValue(event.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="stock-reason">Reason for adjustment *</label>
+              <input
+                id="stock-reason"
+                value={stockReason}
+                onChange={(event) => setStockReason(event.target.value)}
+                placeholder="e.g. New stock received"
+                maxLength={250}
+                required
+              />
+            </div>
+
+            <div className="stock-change-preview">
+              <span>Stock change</span>
+              <strong
+                className={
+                  Number(stockValue) - stockProduct.stock >= 0
+                    ? 'positive-change'
+                    : 'negative-change'
+                }
+              >
+                {Number(stockValue) - stockProduct.stock >= 0 ? '+' : ''}
+                {Number(stockValue || 0) - stockProduct.stock} units
+              </strong>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setStockProduct(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={savingStock}
+              >
+                {savingStock ? 'Updating...' : 'Update stock'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon,
+  tone,
+  description,
+}: {
+  title: string;
+  value: number;
+  icon: React.ReactNode;
+  tone: 'green' | 'blue' | 'orange' | 'red';
+  description: string;
+}) {
+  return (
+    <div className="stat-card">
+      <div className="stat-card-top">
+        <span>{title}</span>
+        <div className={`stat-icon ${tone}`}>{icon}</div>
+      </div>
+      <div className="stat-value">{value.toLocaleString('en-IN')}</div>
+      <div className="stat-description">{description}</div>
+    </div>
+  );
+}
+
+function StockBadge({ stock }: { stock: number }) {
+  if (stock === 0) {
+    return <span className="status-pill status-inactive">Out of stock</span>;
+  }
+
+  if (stock <= 10) {
+    return <span className="status-pill status-warning">Low stock</span>;
+  }
+
+  return <span className="status-pill status-active">In stock</span>;
+}
+
+function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="empty-state">
+      <div className="empty-state-icon">
+        <Package size={25} />
+      </div>
+      <strong>{title}</strong>
+      <p>{description}</p>
+    </div>
+  );
+}
+
+function InventoryTable({
+  logs,
+  compact = false,
+}: {
+  logs: InventoryLog[];
+  compact?: boolean;
+}) {
+  return (
+    <div className="table-responsive">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Previous stock</th>
+            <th>Change</th>
+            <th>New stock</th>
+            <th>Reason</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {logs.slice(0, compact ? 5 : 100).map((log) => (
+            <tr key={log.id}>
+              <td>
+                <strong>{log.productName}</strong>
+                {log.sku && <small className="table-subtext">{log.sku}</small>}
+              </td>
+              <td>{log.previousStock}</td>
+              <td>
+                <span
+                  className={
+                    log.changeAmount >= 0
+                      ? 'stock-change positive-change'
+                      : 'stock-change negative-change'
+                  }
+                >
+                  {log.changeAmount >= 0 ? (
+                    <ArrowUp size={14} />
+                  ) : (
+                    <ArrowDown size={14} />
+                  )}
+                  {log.changeAmount > 0 ? '+' : ''}
+                  {log.changeAmount}
+                </span>
+              </td>
+              <td>
+                <strong>{log.newStock}</strong>
+              </td>
+              <td>{log.reason || 'â€”'}</td>
+              <td>{formatDate(log.createdAt)}</td>
+            </tr>
+          ))}
+
+          {logs.length === 0 && (
+            <tr>
+              <td colSpan={6}>
+                <EmptyState
+                  title="No inventory activity"
+                  description="Stock changes will be recorded here."
+                />
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Modal({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div
+        className="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="modal-heading">
+          <div>
+            <h2>{title}</h2>
+            <p>{subtitle}</p>
+          </div>
+          <button
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Close modal"
+            type="button"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+
+========== FILE: apps\admin\src\App.css ==========
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #172b27;
+  background: #f5f7f6;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --green: #15945b;
+  --green-dark: #087747;
+  --navy: #172b27;
+  --muted: #75817d;
+  --border: #e8eeeb;
+  --surface: #fff;
+  --background: #f5f7f6;
+  --shadow: 0 8px 30px rgba(22, 45, 36, .055);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; width: 100%; margin: 0; }
+body { min-width: 320px; min-height: 100vh; background: var(--background); }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .65; }
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+svg { flex-shrink: 0; }
+::selection { background: #15945b; color: white; }
+
+/* Login */
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  padding: 35px 20px 65px;
+  background: radial-gradient(circle at 85% 15%, #dcefe5 0, transparent 32%),
+              radial-gradient(circle at 10% 90%, #e2eee8 0, transparent 32%),
+              #f4f7f5;
+}
+.login-decoration {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+}
+.login-decoration-one {
+  width: 350px; height: 350px;
+  right: -100px; top: -120px;
+  background: #d9eee2;
+}
+.login-decoration-two {
+  width: 280px; height: 280px;
+  left: -100px; bottom: -100px;
+  background: #e1eee7;
+}
+.login-card {
+  width: min(100%, 460px);
+  padding: 42px;
+  position: relative;
+  z-index: 1;
+  background: white;
+  border: 1px solid #edf1ee;
+  border-radius: 22px;
+  box-shadow: 0 25px 80px rgba(25, 57, 42, .10);
+}
+.login-brand, .sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.login-brand-icon, .brand-mark {
+  display: grid;
+  place-items: center;
+  width: 49px; height: 49px;
+  color: white;
+  background: var(--green);
+  border-radius: 14px;
+}
+.login-brand h1 {
+  margin: 0;
+  font: 800 25px Manrope, sans-serif;
+  letter-spacing: 1px;
+}
+.login-brand span, .sidebar-brand span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+.login-heading { margin: 42px 0 27px; }
+.eyebrow {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+.login-heading h2 {
+  margin: 10px 0 8px;
+  font: 800 29px Manrope, sans-serif;
+}
+.login-heading p, .section-toolbar p, .welcome-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.login-form { display: flex; flex-direction: column; gap: 10px; }
+.login-form label, .form-field label {
+  color: #44544d;
+  font-size: 12px;
+  font-weight: 700;
+}
+.login-form input, .form-field input, .form-field textarea,
+.form-field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 12px 14px;
+  color: var(--navy);
+  background: #fbfcfb;
+  border: 1px solid #dfe8e2;
+  border-radius: 9px;
+  outline: none;
+  transition: border .2s, box-shadow .2s;
+}
+.login-form input:focus, .form-field input:focus,
+.form-field textarea:focus, .form-field select:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px #15945b18;
+}
+.password-field { position: relative; }
+.password-field input { padding-right: 48px; }
+.password-toggle {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  border: 0; background: transparent; color: #84928b;
+}
+.login-submit { width: 100%; margin-top: 9px; min-height: 48px; }
+.login-security {
+  display: flex; align-items: center; justify-content: center;
+  gap: 7px; margin-top: 25px;
+  color: #829087; font-size: 11px;
+}
+.login-security svg { color: var(--green); }
+.login-footer {
+  position: absolute; bottom: 18px; left: 0; right: 0;
+  text-align: center; color: #91a098; font-size: 10px;
+  letter-spacing: 1px;
+}
+
+/* Main application */
+.admin-app { min-height: 100vh; }
+.admin-sidebar {
+  position: fixed; z-index: 20; inset: 0 auto 0 0;
+  display: flex; flex-direction: column;
+  width: 255px; padding: 25px 17px 16px;
+  color: #dce9e2; background: #172b27;
+}
+.sidebar-brand { padding: 0 9px 35px; }
+.sidebar-brand strong {
+  display: block; color: white;
+  font: 800 21px Manrope, sans-serif; letter-spacing: 1px;
+}
+.sidebar-brand span { color: #a6b9ae; font-size: 9px; }
+.sidebar-label {
+  padding: 0 12px 12px;
+  color: #849b8e; font-size: 9px;
+  font-weight: 800; letter-spacing: 1.7px;
+}
+.sidebar-nav { display: grid; gap: 6px; }
+.nav-item {
+  display: flex; align-items: center; gap: 13px;
+  width: 100%; padding: 12px 13px;
+  color: #b8c9bf; background: transparent;
+  border: 0; border-radius: 9px;
+  text-align: left; font-size: 13px; font-weight: 600;
+  transition: .2s;
+}
+.nav-item:hover { color: white; background: #ffffff12; }
+.nav-item.active {
+  color: white; background: #15945b;
+  box-shadow: 0 5px 14px #0002;
+}
+.sidebar-label-bottom { margin-top: 35px; }
+.sidebar-store-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 10px;
+  background: #ffffff0d; border: 1px solid #ffffff12;
+  border-radius: 10px;
+}
+.store-card-icon {
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  color: #8be0ae; background: #15945b28;
+  border-radius: 8px;
+}
+.sidebar-store-card strong, .sidebar-store-card span {
+  display: block; font-size: 11px;
+}
+.sidebar-store-card strong { color: white; }
+.sidebar-store-card div:nth-child(2) span {
+  margin-top: 3px; color: #91a99a; font-size: 10px;
+}
+.online-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  background: #32c77a; border-radius: 50%;
+  box-shadow: 0 0 0 3px #32c77a20;
+}
+.sidebar-store-card > .online-dot { margin-left: auto; }
+.sidebar-user {
+  display: flex; align-items: center; gap: 9px;
+  margin-top: auto; padding: 17px 4px 3px;
+  border-top: 1px solid #ffffff18;
+}
+.user-avatar, .topbar-avatar {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  color: white; background: #287a57;
+  border-radius: 50%; font-weight: 800;
+}
+.user-info { min-width: 0; flex: 1; }
+.user-info strong, .user-info span {
+  display: block; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-info strong { color: white; font-size: 11px; }
+.user-info span { margin-top: 4px; color: #9eb2a6; font-size: 9px; }
+.logout-icon, .mobile-close {
+  display: grid; place-items: center;
+  width: 34px; height: 34px;
+  color: #a8bcb0; background: transparent; border: 0;
+  border-radius: 8px;
+}
+.logout-icon:hover, .mobile-close:hover { color: white; background: #ffffff15; }
+.mobile-close, .mobile-menu { display: none; }
+
+/* Topbar and content */
+.admin-main { min-height: 100vh; margin-left: 255px; }
+.admin-topbar {
+  position: sticky; z-index: 10; top: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 83px; padding: 15px 34px;
+  background: #ffffffed; border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+}
+.breadcrumb { margin-bottom: 5px; color: #89958e; font-size: 10px; }
+.admin-topbar h1 {
+  margin: 0; color: var(--navy);
+  font: 800 21px Manrope, sans-serif;
+}
+.topbar-actions { display: flex; align-items: center; gap: 19px; }
+.admin-status {
+  display: flex; align-items: center; gap: 9px;
+  color: #61746a; font-size: 11px; font-weight: 600;
+}
+.topbar-avatar { width: 36px; height: 36px; background: #e5f3eb; color: var(--green-dark); }
+.icon-button {
+  display: grid; place-items: center;
+  width: 38px; height: 38px; color: #63746b;
+  background: white; border: 1px solid var(--border);
+  border-radius: 9px;
+}
+.icon-button:hover { color: var(--green); border-color: #a9d5bb; }
+.admin-content { max-width: 1600px; margin: auto; padding: 29px 34px 20px; }
+.page-section { display: flex; flex-direction: column; gap: 23px; }
+.welcome-row, .section-toolbar {
+  display: flex; align-items: center; justify-content: space-between; gap: 15px;
+}
+.welcome-row h2, .section-toolbar h2 {
+  margin: 7px 0 6px; color: var(--navy);
+  font: 800 23px Manrope, sans-serif;
+}
+.section-toolbar h2 { margin-top: 0; font-size: 20px; }
+.primary-button, .secondary-button, .small-outline-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; min-height: 40px; padding: 0 15px;
+  border-radius: 8px; font-size: 12px; font-weight: 700;
+  transition: .2s;
+}
+.primary-button {
+  color: white; background: var(--green);
+  border: 1px solid var(--green);
+  box-shadow: 0 4px 10px #15945b20;
+}
+.primary-button:hover { background: var(--green-dark); border-color: var(--green-dark); }
+.secondary-button, .small-outline-button {
+  color: #42564b; background: white; border: 1px solid #dfe8e2;
+}
+.secondary-button:hover, .small-outline-button:hover {
+  color: var(--green-dark); border-color: #a7d3b8;
+}
+.stats-grid {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.stat-card, .panel, .category-card {
+  background: white; border: 1px solid var(--border);
+  border-radius: 13px; box-shadow: var(--shadow);
+}
+.stat-card { min-width: 0; padding: 20px; }
+.stat-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.stat-card-top > span { color: #718078; font-size: 12px; font-weight: 600; }
+.stat-icon {
+  display: grid; place-items: center;
+  width: 39px; height: 39px; border-radius: 10px;
+}
+.stat-icon.green, .quick-action-icon.green { color: #168653; background: #e8f6ee; }
+.stat-icon.blue, .quick-action-icon.blue { color: #397ac4; background: #eaf2fd; }
+.stat-icon.orange, .quick-action-icon.orange { color: #d47b13; background: #fff4e5; }
+.stat-icon.red { color: #d64c4c; background: #fff0f0; }
+.quick-action-icon.purple { color: #8460c6; background: #f2edff; }
+.stat-value {
+  margin-top: 15px; color: var(--navy);
+  font: 800 29px Manrope, sans-serif;
+}
+.stat-description { margin-top: 3px; color: #8a968f; font-size: 10px; }
+.dashboard-grid {
+  display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px;
+}
+.panel { min-width: 0; padding: 21px; }
+.panel-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 15px; margin-bottom: 19px;
+}
+.panel-heading h3 { margin: 0; font: 800 15px Manrope, sans-serif; }
+.panel-heading p { margin: 5px 0 0; color: #8a968f; font-size: 11px; }
+.panel-heading > svg { color: #8da398; }
+.quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.quick-action {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0; padding: 13px;
+  text-align: left; background: #fbfcfb;
+  border: 1px solid #edf1ee; border-radius: 10px;
+}
+.quick-action:hover { border-color: #b8d9c4; background: #f7fcf8; }
+.quick-action-icon {
+  display: grid; place-items: center;
+  flex-shrink: 0; width: 39px; height: 39px; border-radius: 9px;
+}
+.quick-action strong, .quick-action small { display: block; }
+.quick-action strong { color: #304139; font-size: 11px; }
+.quick-action small { margin-top: 4px; color: #8a968f; font-size: 9px; }
+.summary-number { color: var(--green); font: 800 37px Manrope, sans-serif; }
+.summary-caption { color: #849188; font-size: 11px; }
+.summary-divider { height: 1px; margin: 17px 0; background: var(--border); }
+.summary-row { display: flex; justify-content: space-between; padding: 7px 0; color: #748078; font-size: 11px; }
+.summary-row strong { color: var(--navy); }
+.text-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0; color: var(--green-dark);
+  background: transparent; border: 0;
+  font-size: 11px; font-weight: 700;
+}
+.text-link:hover { color: #075a36; }
+
+/* Tables */
+.table-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; margin-bottom: 17px;
+}
+.search-box {
+  display: flex; align-items: center; gap: 9px;
+  width: min(100%, 380px); min-height: 40px;
+  padding: 0 12px; color: #8a968f;
+  background: #fbfcfb; border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.search-box input {
+  width: 100%; min-width: 0; border: 0; outline: 0;
+  color: var(--navy); background: transparent; font-size: 11px;
+}
+.filter-select {
+  min-height: 40px; padding: 0 30px 0 12px;
+  color: #52645a; background: white;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 11px;
+}
+.table-responsive { width: 100%; overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; }
+.data-table th {
+  padding: 12px 13px; color: #8b9890;
+  background: #f8faf8; border-bottom: 1px solid var(--border);
+  font-size: 9px; font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.data-table td {
+  padding: 13px; color: #5f6e65;
+  border-bottom: 1px solid #edf1ee;
+  font-size: 11px; vertical-align: middle;
+}
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: #fbfdfb; }
+.data-table td strong { color: #34463c; font-weight: 700; }
+.product-cell { display: flex; align-items: center; gap: 10px; min-width: 175px; }
+.product-cell strong, .product-cell small { display: block; }
+.product-cell small, .table-subtext {
+  margin-top: 4px; color: #9aa49e; font-size: 9px;
+}
+.product-thumbnail {
+  display: grid; place-items: center;
+  width: 39px; height: 39px; overflow: hidden;
+  color: #83a18f; background: #edf5ef;
+  border-radius: 8px;
+}
+.product-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+.old-price { display: block; margin-top: 4px; color: #9aa49e; font-size: 9px; text-decoration: line-through; }
+.stock-value { font-weight: 800; color: #278453; }
+.stock-value.warning { color: #d08318; }
+.stock-value.danger { color: #d54c4c; }
+.status-pill {
+  display: inline-flex; align-items: center;
+  padding: 5px 9px; border-radius: 20px;
+  font-size: 9px; font-weight: 700; white-space: nowrap;
+}
+.status-active { color: #18834e; background: #e9f7ef; }
+.status-inactive { color: #bd5151; background: #fff0f0; }
+.status-warning { color: #bd7918; background: #fff5e6; }
+.action-buttons { display: flex; align-items: center; gap: 5px; }
+.table-action {
+  display: grid; place-items: center;
+  width: 31px; height: 31px; color: #718078;
+  background: white; border: 1px solid #e9efeb;
+  border-radius: 7px;
+}
+.table-action:hover { color: var(--green); border-color: #a8d4b9; background: #f5fbf7; }
+.table-footer {
+  padding-top: 14px; color: #8c9891;
+  border-top: 1px solid #edf1ee; font-size: 10px;
+}
+.stock-change { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; }
+.positive-change { color: #168653; }
+.negative-change { color: #d14d4d; }
+.audit-action {
+  display: inline-block; padding: 5px 8px;
+  color: #3975a8; background: #edf5fc;
+  border-radius: 6px; font-size: 9px; font-weight: 700;
+}
+.audit-details { max-width: 250px; overflow-wrap: anywhere; }
+
+/* Categories */
+.category-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;
+}
+.category-card { padding: 20px; transition: .2s; }
+.category-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px #172b2710; }
+.category-card-top { display: flex; justify-content: space-between; align-items: center; }
+.category-icon {
+  display: grid; place-items: center;
+  width: 43px; height: 43px; color: var(--green);
+  background: #eaf6ef; border-radius: 11px;
+}
+.category-card h3 { margin: 17px 0 7px; font: 800 15px Manrope, sans-serif; }
+.category-card p {
+  min-height: 35px; margin: 0;
+  color: #849188; font-size: 11px; line-height: 1.6;
+}
+.category-card-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 17px; padding-top: 13px;
+  border-top: 1px solid var(--border);
+  color: #718078; font-size: 10px;
+}
+.category-card-footer span:first-child { display: flex; align-items: center; gap: 6px; }
+.category-id { color: #9ba69f; }
+
+/* Modal and forms */
+.modal-backdrop {
+  position: fixed; z-index: 50; inset: 0;
+  display: grid; place-items: center;
+  padding: 20px; overflow-y: auto;
+  background: rgba(13, 29, 22, .52);
+  backdrop-filter: blur(4px);
+}
+.modal-card {
+  width: min(100%, 570px); max-height: calc(100vh - 40px);
+  overflow-y: auto; padding: 25px;
+  background: white; border-radius: 15px;
+  box-shadow: 0 25px 80px #0003;
+}
+.modal-heading {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 15px; margin-bottom: 23px;
+}
+.modal-heading h2 { margin: 0; font: 800 19px Manrope, sans-serif; }
+.modal-heading p { margin: 6px 0 0; color: #849188; font-size: 11px; }
+.modal-close {
+  display: grid; place-items: center;
+  width: 34px; height: 34px; color: #728078;
+  background: #f4f7f5; border: 0; border-radius: 8px;
+}
+.modal-close:hover { color: #c34d4d; background: #fff0f0; }
+.modal-form { display: flex; flex-direction: column; gap: 15px; }
+.form-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.form-field textarea { resize: vertical; min-height: 85px; }
+.form-field input, .form-field textarea, .form-field select { font-size: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.modal-actions {
+  display: flex; justify-content: flex-end; gap: 9px;
+  margin-top: 8px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.stock-current-box, .stock-change-preview {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px; color: #718078; background: #f6faf7;
+  border: 1px solid #e8f0ea; border-radius: 9px; font-size: 11px;
+}
+.stock-current-box strong { color: var(--navy); font-size: 17px; }
+.stock-change-preview strong { font-size: 14px; }
+
+/* Feedback and utility */
+.alert {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 9px;
+  font-size: 11px; line-height: 1.5;
+}
+.alert > span { flex: 1; }
+.alert > button {
+  display: grid; place-items: center;
+  padding: 3px; color: inherit; background: transparent; border: 0;
+}
+.alert-error { color: #a53e3e; background: #fff0f0; border: 1px solid #f6d9d9; }
+.alert-success { color: #187447; background: #edf9f1; border: 1px solid #d7efdf; }
+.loading-line {
+  display: flex; align-items: center; gap: 9px;
+  color: #718078; font-size: 11px;
+}
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 155px;
+  padding: 22px; text-align: center;
+}
+.empty-state-icon {
+  display: grid; place-items: center;
+  width: 48px; height: 48px; margin-bottom: 12px;
+  color: #82a18e; background: #edf5ef; border-radius: 13px;
+}
+.empty-state strong { color: #405249; font-size: 12px; }
+.empty-state p { margin: 6px 0 0; color: #91a097; font-size: 10px; }
+.admin-footer {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 24px 2px 5px; color: #94a097; font-size: 10px;
+}
+.admin-footer span:last-child { display: flex; align-items: center; gap: 6px; }
+.admin-footer svg { color: var(--green); }
+.spin { animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sidebar-backdrop { display: none; }
+
+/* Responsive */
+@media (max-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .admin-sidebar {
+    width: 270px; transform: translateX(-100%);
+    transition: transform .25s ease;
+    box-shadow: 10px 0 35px #0002;
+  }
+  .admin-sidebar.sidebar-open { transform: translateX(0); }
+  .sidebar-backdrop {
+    display: block; position: fixed; z-index: 19; inset: 0;
+    background: #10251c77; border: 0;
+  }
+  .mobile-close { display: grid; margin-left: auto; }
+  .admin-main { margin-left: 0; }
+  .admin-topbar { min-height: 72px; padding: 12px 17px; }
+  .mobile-menu {
+    display: grid; place-items: center;
+    width: 36px; height: 36px; margin-right: 10px;
+    color: #52645a; background: white;
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .topbar-left { display: flex; align-items: center; }
+  .admin-topbar h1 { font-size: 18px; }
+  .admin-status { display: none; }
+  .admin-content { padding: 22px 17px; }
+  .welcome-row, .section-toolbar { align-items: flex-start; flex-direction: column; }
+  .welcome-row h2 { font-size: 20px; }
+  .section-toolbar { gap: 13px; }
+  .quick-actions { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .login-card { padding: 28px 22px; border-radius: 17px; }
+  .login-heading { margin-top: 32px; }
+  .login-heading h2 { font-size: 25px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-card { padding: 14px; }
+  .stat-card-top > span { font-size: 10px; }
+  .stat-icon { width: 33px; height: 33px; }
+  .stat-value { font-size: 24px; }
+  .stat-description { font-size: 9px; }
+  .category-grid { grid-template-columns: 1fr; }
+  .panel { padding: 15px; }
+  .table-toolbar { align-items: stretch; flex-direction: column; }
+  .search-box { width: 100%; }
+  .filter-select { width: 100%; }
+  .form-row { grid-template-columns: 1fr; }
+  .modal-card { padding: 19px; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-actions button { flex: 1; }
+  .admin-footer { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+
+
+========== FILE: apps\admin\package.json ==========
+{
+  "name": "admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.66.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.89.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.5"
+  }
+}
+
+
+
+========== FILE: apps\api\src\server.js ==========
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+import db from "./database.js";
+import adminRoutes from "./routes/admin.js";
+import ordersRoutes from "./routes/orders.js";
+
+dotenv.config();
+
+const app = express();
+const PORT = Number(process.env.PORT) || 5000;
+
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  ...(process.env.STOREFRONT_URL ? [process.env.STOREFRONT_URL] : []),
+  ...(process.env.ADMIN_URL ? [process.env.ADMIN_URL] : [])
+]);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Origin not allowed by CORS"));
+  }
+}));
+
+app.use(express.json({ limit: "1mb" }));
+
+// Health check
+app.get("/api/health", (req, res) => {
+  try {
+    const result = db.prepare("SELECT 1 AS database_status").get();
+
+    res.json({
+      success: true,
+      message: "Riya Quick Commerce API is running",
+      database: result.database_status === 1 ? "connected" : "disconnected",
+      timestamp: new Date().toISOString()
+    });
+
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed"
+    });
+  }
+});
+
+// Public categories
+app.get("/api/categories", (req, res) => {
+  try {
+    const categories = db.prepare(`
+      SELECT
+        c.id,
+        c.name,
+        c.slug,
+        c.description,
+        COUNT(p.id) AS product_count
+      FROM categories c
+      LEFT JOIN products p
+        ON p.category_id = c.id AND p.is_active = 1
+      GROUP BY c.id
+      ORDER BY c.name
+    `).all();
+
+    res.json({
+      success: true,
+      count: categories.length,
+      data: categories
+    });
+
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch categories"
+    });
+  }
+});
+
+// Public products
+app.get("/api/products", (req, res) => {
+  try {
+    const search = String(req.query.search || "").trim().slice(0, 100);
+    const category = String(req.query.category || "").trim().slice(0, 80);
+
+    const page = Math.max(
+      1,
+      Number.parseInt(req.query.page, 10) || 1
+    );
+
+    const limit = Math.min(
+      50,
+      Math.max(1, Number.parseInt(req.query.limit, 10) || 20)
+    );
+
+    const conditions = ["p.is_active = 1"];
+    const params = [];
+
+    if (search) {
+      conditions.push("(p.name LIKE ? OR p.description LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (category) {
+      conditions.push("c.slug = ?");
+      params.push(category.toLowerCase());
+    }
+
+    const where = conditions.join(" AND ");
+
+    const countResult = db.prepare(`
+      SELECT COUNT(*) AS total
+      FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE ${where}
+    `).get(...params);
+
+    const products = db.prepare(`
+      SELECT
+        p.id,
+        p.name,
+        p.slug,
+        p.description,
+        p.price,
+        p.original_price AS originalPrice,
+        p.stock,
+        p.image_url AS imageUrl,
+        p.sku,
+        c.name AS category,
+        c.slug AS categorySlug
+      FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE ${where}
+      ORDER BY p.created_at DESC, p.id DESC
+      LIMIT ? OFFSET ?
+    `).all(...params, limit, (page - 1) * limit);
+
+    res.json({
+      success: true,
+      count: products.length,
+      total: countResult.total,
+      page,
+      limit,
+      data: products
+    });
+
+  } catch {
+    res.status(500).json({
+      success: false,
+      message: "Unable to fetch products"
+    });
+  }
+});
+
+// One public product
+app.get("/api/products/:id", (req, res) => {
+  const id = Number(req.params.id);
+
+  if (!Number.isInteger(id) || id < 1) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid product ID"
+    });
+  }
+
+  const product = db.prepare(`
+    SELECT
+      p.id,
+      p.name,
+      p.slug,
+      p.description,
+      p.price,
+      p.original_price AS originalPrice,
+      p.stock,
+      p.image_url AS imageUrl,
+      p.sku,
+      c.name AS category,
+      c.slug AS categorySlug
+    FROM products p
+    LEFT JOIN categories c ON c.id = p.category_id
+    WHERE p.id = ? AND p.is_active = 1
+  `).get(id);
+
+  if (!product) {
+    return res.status(404).json({
+      success: false,
+      message: "Product not found"
+    });
+  }
+
+  res.json({
+    success: true,
+    data: product
+  });
+});
+
+// Admin API
+app.use("/api/admin", adminRoutes);
+app.use("/api/admin/orders", ordersRoutes);
+
+// API information
+app.get("/api", (req, res) => {
+  res.json({
+    name: "Riya Quick Commerce API",
+    version: "1.1.0",
+    endpoints: [
+      "GET /api/health",
+      "GET /api/categories",
+      "GET /api/products",
+      "GET /api/products/:id",
+      "POST /api/admin/login",
+      "GET /api/admin/dashboard",
+      "GET /api/admin/products",
+      "POST /api/admin/products",
+      "PUT /api/admin/products/:id",
+      "PATCH /api/admin/products/:id/status",
+      "PATCH /api/admin/products/:id/stock",
+      "GET /api/admin/categories",
+      "POST /api/admin/categories",
+      "PUT /api/admin/categories/:id",
+      "GET /api/admin/inventory/logs"
+    ]
+  });
+});
+
+// Not found
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "API route not found"
+  });
+});
+
+// Error handler
+app.use((error, req, res, next) => {
+  console.error(error);
+
+  if (error.message === "Origin not allowed by CORS") {
+    return res.status(403).json({
+      success: false,
+      message: "Origin not allowed"
+    });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: "Internal server error"
+  });
+});
+
+app.listen(PORT, () => {
+  console.log("-------------------------------------");
+  console.log(" Riya Quick Commerce API");
+  console.log(` http://localhost:${PORT}`);
+  console.log(` http://localhost:${PORT}/api/health`);
+  console.log("-------------------------------------");
+});
+
+
+========== FILE: apps\api\src\database.js ==========
+import Database from "better-sqlite3";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import fs from "node:fs";
+
+dotenv.config();
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const apiRoot = path.resolve(currentDir, "..");
+
+const databaseFile = path.resolve(
+  apiRoot,
+  process.env.DATABASE_FILE || "./data/riya-commerce.db"
+);
+
+fs.mkdirSync(path.dirname(databaseFile), { recursive: true });
+
+const db = new Database(databaseFile);
+
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
+
+// Existing tables: preserved
+db.exec(`
+  CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    slug TEXT NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    description TEXT DEFAULT '',
+    category_id INTEGER,
+    price REAL NOT NULL CHECK(price >= 0),
+    original_price REAL CHECK(original_price IS NULL OR original_price >= 0),
+    stock INTEGER NOT NULL DEFAULT 0 CHECK(stock >= 0),
+    image_url TEXT DEFAULT '',
+    sku TEXT UNIQUE,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(category_id) REFERENCES categories(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS inventory_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id INTEGER NOT NULL,
+    change_amount INTEGER NOT NULL,
+    previous_stock INTEGER NOT NULL,
+    new_stock INTEGER NOT NULL,
+    reason TEXT DEFAULT 'Manual update',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(product_id) REFERENCES products(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_products_category
+  ON products(category_id);
+
+  CREATE INDEX IF NOT EXISTS idx_products_active
+  ON products(is_active);
+
+  -- New admin table
+  CREATE TABLE IF NOT EXISTS admin_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'admin',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  -- Admin activity history
+  CREATE TABLE IF NOT EXISTS admin_audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id INTEGER,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER,
+    details TEXT DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(admin_id) REFERENCES admin_users(id)
+  );
+`);
+
+// ---------------- ORDERS MANAGEMENT TABLES ----------------
+// Safe migration: CREATE TABLE IF NOT EXISTS preserves existing data.
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number TEXT NOT NULL UNIQUE,
+    customer_name TEXT NOT NULL,
+    customer_email TEXT DEFAULT '',
+    customer_phone TEXT NOT NULL,
+    delivery_address TEXT NOT NULL,
+    delivery_city TEXT DEFAULT '',
+    delivery_state TEXT DEFAULT '',
+    delivery_pincode TEXT DEFAULT '',
+    subtotal REAL NOT NULL DEFAULT 0 CHECK(subtotal >= 0),
+    delivery_fee REAL NOT NULL DEFAULT 0 CHECK(delivery_fee >= 0),
+    discount REAL NOT NULL DEFAULT 0 CHECK(discount >= 0),
+    total_amount REAL NOT NULL DEFAULT 0 CHECK(total_amount >= 0),
+    payment_method TEXT NOT NULL DEFAULT 'COD',
+    payment_status TEXT NOT NULL DEFAULT 'pending',
+    status TEXT NOT NULL DEFAULT 'Placed',
+    customer_notes TEXT DEFAULT '',
+    cancellation_reason TEXT DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS order_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    product_id INTEGER,
+    product_name TEXT NOT NULL,
+    sku TEXT DEFAULT '',
+    quantity INTEGER NOT NULL CHECK(quantity > 0),
+    unit_price REAL NOT NULL CHECK(unit_price >= 0),
+    line_total REAL NOT NULL CHECK(line_total >= 0),
+    FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS order_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    old_status TEXT DEFAULT '',
+    new_status TEXT NOT NULL,
+    note TEXT DEFAULT '',
+    changed_by INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY(changed_by) REFERENCES admin_users(id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_orders_status
+  ON orders(status);
+
+  CREATE INDEX IF NOT EXISTS idx_orders_created
+  ON orders(created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_orders_phone
+  ON orders(customer_phone);
+
+  CREATE INDEX IF NOT EXISTS idx_order_items_order
+  ON order_items(order_id);
+
+  CREATE INDEX IF NOT EXISTS idx_order_events_order
+  ON order_events(order_id);
+`);
+
+
+// Existing sample data: INSERT OR IGNORE prevents overwriting existing records
+const seed = db.transaction(() => {
+  const categories = [
+    ["Grocery", "grocery"],
+    ["Electronics", "electronics"],
+    ["Solar", "solar"],
+    ["Home & Living", "home-living"],
+    ["Personal Care", "personal-care"],
+    ["Electrical", "electrical"]
+  ];
+
+  const insertCategory = db.prepare(`
+    INSERT OR IGNORE INTO categories (name, slug)
+    VALUES (?, ?)
+  `);
+
+  for (const category of categories) {
+    insertCategory.run(...category);
+  }
+
+  const categoryRows = db.prepare(
+    "SELECT id, slug FROM categories"
+  ).all();
+
+  const categoryMap = Object.fromEntries(
+    categoryRows.map((item) => [item.slug, item.id])
+  );
+
+  const sampleProducts = [
+    {
+      name: "Fresh Grocery Combo",
+      slug: "fresh-grocery-combo",
+      description: "Daily grocery essentials for your home.",
+      category: "grocery",
+      price: 299,
+      originalPrice: 349,
+      stock: 50,
+      sku: "RIYA-GRO-001"
+    },
+    {
+      name: "Smart LED Bulb",
+      slug: "smart-led-bulb",
+      description: "Energy-efficient LED bulb for everyday use.",
+      category: "electrical",
+      price: 149,
+      originalPrice: 199,
+      stock: 40,
+      sku: "RIYA-ELE-001"
+    },
+    {
+      name: "Solar LED Light",
+      slug: "solar-led-light",
+      description: "Solar-powered outdoor lighting solution.",
+      category: "solar",
+      price: 899,
+      originalPrice: 1099,
+      stock: 20,
+      sku: "RIYA-SOL-001"
+    },
+    {
+      name: "Wireless Earbuds",
+      slug: "wireless-earbuds",
+      description: "Wireless earbuds for music and calls.",
+      category: "electronics",
+      price: 799,
+      originalPrice: 999,
+      stock: 15,
+      sku: "RIYA-ELC-001"
+    },
+    {
+      name: "Home Storage Organizer",
+      slug: "home-storage-organizer",
+      description: "Useful organizer for home storage.",
+      category: "home-living",
+      price: 399,
+      originalPrice: 499,
+      stock: 25,
+      sku: "RIYA-HOM-001"
+    },
+    {
+      name: "Personal Care Kit",
+      slug: "personal-care-kit",
+      description: "Everyday personal care essentials.",
+      category: "personal-care",
+      price: 249,
+      originalPrice: 299,
+      stock: 30,
+      sku: "RIYA-PER-001"
+    }
+  ];
+
+  const insertProduct = db.prepare(`
+    INSERT OR IGNORE INTO products
+    (name, slug, description, category_id, price,
+     original_price, stock, sku)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const product of sampleProducts) {
+    insertProduct.run(
+      product.name,
+      product.slug,
+      product.description,
+      categoryMap[product.category],
+      product.price,
+      product.originalPrice,
+      product.stock,
+      product.sku
+    );
+  }
+});
+
+seed();
+
+export default db;
+
+
+========== FILE: apps\api\package.json ==========
+{
+  "name": "riya-quick-commerce-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "admin:create": "node src/scripts/create-admin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "allowScripts": {
+    "better-sqlite3@11.10.0": true
+  }
+}

@@ -1,0 +1,254 @@
+RIYA QUICK COMMERCE - CURRENT SOURCE INVENTORY
+
+===== PROJECT FILES =====
+apps\admin\.gitignore
+apps\admin\.oxlintrc.json
+apps\admin\index.html
+apps\admin\package.json
+apps\admin\package-lock.json
+apps\admin\public\favicon.svg
+apps\admin\public\icons.svg
+apps\admin\README.md
+apps\admin\src\App.css
+apps\admin\src\App.tsx
+apps\admin\src\App.tsx.backup-product-details-move
+apps\admin\src\App.tsx.before-rider-assignment
+apps\admin\src\App.tsx.before-rider-crud-functions
+apps\admin\src\App.tsx.before-rider-loader
+apps\admin\src\App.tsx.before-rider-management-ui
+apps\admin\src\App.tsx.before-rider-navigation
+apps\admin\src\App.tsx.before-rider-types
+apps\admin\src\assets\hero.png
+apps\admin\src\assets\react.svg
+apps\admin\src\assets\vite.svg
+apps\admin\src\index.css
+apps\admin\src\main.tsx
+apps\admin\tsconfig.app.json
+apps\admin\tsconfig.json
+apps\admin\tsconfig.node.json
+apps\admin\vite.config.ts
+apps\api\crash-test.log
+apps\api\crash-test-2.log
+apps\api\inspect-schema.mjs
+apps\api\package.json
+apps\api\package-lock.json
+apps\api\phase0-backup.mjs
+apps\api\phase0-readonly-audit.mjs
+apps\api\src\database.js
+apps\api\src\middleware\auth.js
+apps\api\src\middleware\customer-auth.js
+apps\api\src\middleware\rider-auth.js
+apps\api\src\middleware\upload.js
+apps\api\src\migrate-customers.js
+apps\api\src\migrate-riders.js
+apps\api\src\routes\admin.js
+apps\api\src\routes\customer-auth.js
+apps\api\src\routes\customer-orders.js
+apps\api\src\routes\customer-orders.js.backup-20261103-090839
+apps\api\src\routes\orders.js
+apps\api\src\routes\orders.js.backup-20261103-090839
+apps\api\src\routes\orders.js.before-rider-status-security
+apps\api\src\routes\product-details.js
+apps\api\src\routes\rider.js
+apps\api\src\routes\rider-assignment.js
+apps\api\src\routes\rider-auth.js
+apps\api\src\routes\rider-gps.js
+apps\api\src\routes\rider-live-admin.js
+apps\api\src\routes\riders-admin.js
+apps\api\src\scripts\create-admin.js
+apps\api\src\server.js
+apps\api\src\server.js.backup-before-customer-orders
+apps\api\src\server.js.before-rider-mount
+apps\rider\index.html
+apps\rider\install.bat
+apps\rider\package.json
+apps\rider\package-lock.json
+apps\rider\run.bat
+apps\rider\src\App.tsx
+apps\rider\src\main.tsx
+apps\rider\src\style.css
+apps\rider\src\vite-env.d.ts
+apps\rider\tsconfig.json
+apps\rider\tsconfig.tsbuildinfo
+apps\rider\vite.config.ts
+apps\storefront\.gitignore
+apps\storefront\.oxlintrc.json
+apps\storefront\index.html
+apps\storefront\package.json
+apps\storefront\package-lock.json
+apps\storefront\public\favicon.svg
+apps\storefront\public\icons.svg
+apps\storefront\README.md
+apps\storefront\src\App.css
+apps\storefront\src\App.css.backup-20261103-092424
+apps\storefront\src\App.css.backup-before-product-details
+apps\storefront\src\App.tsx
+apps\storefront\src\App.tsx.backup
+apps\storefront\src\App.tsx.backup-20261103-092424
+apps\storefront\src\App.tsx.backup-auth-20261103-101653
+apps\storefront\src\App.tsx.backup-before-product-details
+apps\storefront\src\App.tsx.backup-before-storefront-patch-20261103-215933
+apps\storefront\src\App.tsx.backup-checkout-20261103-102137
+apps\storefront\src\App.tsx.backup-my-orders-20261103-103043
+apps\storefront\src\assets\hero.png
+apps\storefront\src\assets\react.svg
+apps\storefront\src\assets\vite.svg
+apps\storefront\src\components\CustomerAuth.css
+apps\storefront\src\components\CustomerAuth.tsx
+apps\storefront\src\components\CustomerCheckout.css
+apps\storefront\src\components\CustomerCheckout.tsx
+apps\storefront\src\components\MyOrders.css
+apps\storefront\src\components\MyOrders.tsx
+apps\storefront\src\components\MyOrders.tsx.backup-before-storefront-patch-20261103-215933
+apps\storefront\src\index.css
+apps\storefront\src\main.tsx
+apps\storefront\src\pages\ProductDetails.tsx
+apps\storefront\src\ProductDetails.css
+apps\storefront\src\services\api.ts
+apps\storefront\src\services\api.ts.backup-20261103-092424
+apps\storefront\src\services\customerApi.ts
+apps\storefront\tsconfig.app.json
+apps\storefront\tsconfig.json
+apps\storefront\tsconfig.node.json
+apps\storefront\vite.config.ts
+
+===== PACKAGE FILES =====
+
+--- apps\admin\package.json ---
+{
+  "name": "admin",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.66.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/react-router-dom": "^5.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.89.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.5"
+  }
+}
+
+--- apps\api\package.json ---
+{
+  "name": "riya-quick-commerce-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "admin:create": "node src/scripts/create-admin.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^11.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "allowScripts": {
+    "better-sqlite3@11.10.0": true
+  }
+}
+
+--- apps\rider\package.json ---
+{
+  "name": "riya-rider-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5175",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5175"
+  },
+  "dependencies": {
+    "lucide-react": "^1.65.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.5"
+  }
+}
+
+--- apps\storefront\package.json ---
+{
+  "name": "storefront",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.65.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.89.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.5"
+  }
+}
+
+===== API ROUTE MOUNTS =====
+app.use(cors({
+app.use(express.json({ limit: "1mb" }));
+app.use(
+app.get("/api/health", (req, res) => {
+app.get("/api/categories", (req, res) => {
+app.get("/api/products", (req, res) => {
+app.get("/api/products/:id", (req, res) => {
+app.use("/api/admin", adminRoutes);
+app.use("/api/admin/riders", ridersAdminRoutes);
+app.use("/api/rider/auth", riderAuthRoutes);
+app.use("/api/rider", riderRoutes);
+app.use("/api/rider/gps", riderGpsRoutes);
+app.use("/api/admin/rider-live", riderLiveAdminRoutes);
+app.use("/api/customer/auth", customerAuthRoutes);
+app.use("/api/customer/orders", customerOrderRoutes);
+app.use("/api/admin/orders", riderAssignmentRoutes);
+app.use("/api/admin/orders", ordersRoutes);
+app.use("/api", productDetailsRoutes);
+app.get("/api", (req, res) => {
+app.use((req, res) => {
+app.use((error, req, res, next) => {
+
+===== DATABASE TABLES =====

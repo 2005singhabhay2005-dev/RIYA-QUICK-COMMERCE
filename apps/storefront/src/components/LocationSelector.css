@@ -1,0 +1,297 @@
+
+.riya-location-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(20, 28, 22, .48);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  backdrop-filter: blur(5px);
+}
+
+.riya-location-modal {
+  width: min(100%, 520px);
+  max-height: min(92vh, 850px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 24px;
+  padding: 25px;
+  box-shadow: 0 24px 80px #10251538;
+  color: #202820;
+  animation: riyaLocationIn .2s ease-out;
+}
+
+@keyframes riyaLocationIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.riya-location-head {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 20px;
+}
+
+.riya-location-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: #fff1e7;
+  color: #ed6b24;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.riya-location-head h2 {
+  font-size: 20px;
+  margin: 0 0 4px;
+  font-weight: 800;
+}
+
+.riya-location-head p {
+  font-size: 12px;
+  color: #778078;
+  margin: 0;
+}
+
+.riya-location-close {
+  margin-left: auto;
+  border: 0;
+  background: #f4f5f2;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: #465047;
+}
+
+.riya-gps-button {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #d9eadc;
+  border-radius: 13px;
+  background: #f3faf4;
+  color: #188044;
+  font-weight: 750;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.riya-gps-button span {
+  font-size: 10px;
+  background: #dff2e4;
+  border-radius: 20px;
+  padding: 4px 7px;
+}
+
+.riya-gps-button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.riya-location-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #9aa19b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.riya-location-divider:before,
+.riya-location-divider:after {
+  content: "";
+  height: 1px;
+  background: #edf0ec;
+  flex: 1;
+}
+
+.riya-location-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+}
+
+.riya-location-fields label,
+.riya-save-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 750;
+  color: #475047;
+}
+
+.riya-location-fields input,
+.riya-location-fields textarea,
+.riya-save-row select {
+  width: 100%;
+  border: 1px solid #e1e6df;
+  border-radius: 10px;
+  padding: 12px;
+  font: inherit;
+  font-size: 14px;
+  color: #283128;
+  outline: none;
+  background: #fff;
+}
+
+.riya-location-fields input:focus,
+.riya-location-fields textarea:focus,
+.riya-save-row select:focus {
+  border-color: #269b55;
+  box-shadow: 0 0 0 3px #269b5515;
+}
+
+.riya-full-field {
+  grid-column: 1 / -1;
+}
+
+.riya-location-fields textarea {
+  resize: vertical;
+}
+
+.riya-save-row {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin-top: 13px;
+}
+
+.riya-save-row label {
+  flex: 1;
+}
+
+.riya-save-row select {
+  padding: 10px;
+}
+
+.riya-save-address {
+  border: 1px solid #dce8dd;
+  background: white;
+  color: #168044;
+  border-radius: 10px;
+  padding: 11px 15px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.riya-location-message {
+  font-size: 12px;
+  color: #b45309;
+  background: #fff7e8;
+  border-radius: 9px;
+  padding: 9px 11px;
+  margin: 12px 0;
+}
+
+.riya-confirm-location {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(100deg, #ed6b24, #f28a32);
+  color: white;
+  font-weight: 800;
+  padding: 14px;
+  margin-top: 15px;
+  cursor: pointer;
+  box-shadow: 0 7px 18px #ed6b2430;
+}
+
+.riya-saved-list {
+  border-top: 1px solid #edf0ec;
+  margin-top: 19px;
+  padding-top: 15px;
+}
+
+.riya-saved-list h3 {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.riya-saved-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f2ef;
+}
+
+.riya-saved-main {
+  border: 0;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  flex: 1;
+  cursor: pointer;
+  color: #25834b;
+}
+
+.riya-saved-main span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #2b342c;
+}
+
+.riya-saved-main b {
+  font-size: 12px;
+}
+
+.riya-saved-main small {
+  font-size: 11px;
+  color: #828a82;
+}
+
+.riya-remove-address {
+  border: 0;
+  background: #fff1ee;
+  color: #c45b49;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.riya-location-note {
+  font-size: 10px;
+  line-height: 1.5;
+  color: #929a92;
+  margin: 14px 0 0;
+}
+
+@media (max-width: 520px) {
+  .riya-location-modal {
+    padding: 19px;
+    border-radius: 19px;
+  }
+
+  .riya-location-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .riya-full-field {
+    grid-column: auto;
+  }
+
+  .riya-location-head h2 {
+    font-size: 17px;
+  }
+}

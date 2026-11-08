@@ -1,0 +1,252 @@
+
+.product-filters {
+  width: 100%;
+  margin: 18px 0 24px;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid #e9edf0;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(20, 40, 30, 0.045);
+}
+
+.product-filters-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 15px;
+}
+
+.product-filters-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #172b24;
+  font-size: 15px;
+}
+
+.product-filters-title > svg {
+  color: #16834b;
+}
+
+.product-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 6px;
+  border-radius: 20px;
+  background: #e5f6ec;
+  color: #08743d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.product-filter-result-count {
+  color: #78837d;
+  font-size: 13px;
+}
+
+.product-filter-result-count strong {
+  color: #172b24;
+}
+
+.product-filters-panel {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1fr 1.3fr auto;
+  align-items: end;
+  gap: 13px;
+}
+
+.product-filter-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-filter-field label {
+  color: #53635b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.product-filter-field select,
+.product-price-inputs input {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 11px;
+  border: 1px solid #e2e9e4;
+  border-radius: 9px;
+  outline: none;
+  background: #fbfdfb;
+  color: #25382e;
+  font-size: 13px;
+}
+
+.product-filter-field select:focus,
+.product-price-inputs input:focus {
+  border-color: #159653;
+  box-shadow: 0 0 0 3px rgba(21, 150, 83, 0.09);
+}
+
+.product-price-inputs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.product-price-inputs input {
+  flex: 1;
+}
+
+.product-price-inputs span {
+  color: #849087;
+  font-size: 12px;
+}
+
+.product-price-range {
+  width: 100%;
+  margin: 2px 0 0;
+  accent-color: #159653;
+  cursor: pointer;
+}
+
+.product-sort-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.product-sort-select > svg {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  color: #16834b;
+  pointer-events: none;
+}
+
+.product-sort-select select {
+  padding-left: 32px;
+}
+
+.product-filter-reset {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  border: 1px solid #f0dede;
+  border-radius: 9px;
+  background: #fff8f8;
+  color: #bd4141;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.product-filter-reset:hover {
+  background: #ffeded;
+  border-color: #eabcbc;
+}
+
+.product-filter-active {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #eff2ef;
+  color: #77847c;
+  font-size: 12px;
+}
+
+.product-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 1px solid #d9eee1;
+  border-radius: 30px;
+  background: #f0faf4;
+  color: #147344;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.product-filter-chip button {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.product-filter-mobile-toggle {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .product-filters-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-filter-reset {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .product-filters {
+    padding: 13px;
+    margin: 14px 0 20px;
+  }
+
+  .product-filters-top {
+    flex-wrap: wrap;
+    margin-bottom: 0;
+  }
+
+  .product-filter-mobile-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 11px;
+    border: 1px solid #dcebe1;
+    border-radius: 9px;
+    background: #f3faf5;
+    color: #147344;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .product-filter-mobile-toggle .rotated {
+    transform: rotate(180deg);
+  }
+
+  .product-filter-result-count {
+    width: 100%;
+    font-size: 12px;
+  }
+
+  .product-filters-panel {
+    display: none;
+    grid-template-columns: 1fr;
+    padding-top: 15px;
+  }
+
+  .product-filters-panel.open {
+    display: grid;
+  }
+
+  .product-filter-field select,
+  .product-price-inputs input {
+    height: 44px;
+  }
+}
