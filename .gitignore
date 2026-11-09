@@ -78,3 +78,6 @@ logs/
 *.before-*
 *-backup-*
 apps/api/phase0-backup.mjs
+
+# Local source backups
+*.smtp-backup
