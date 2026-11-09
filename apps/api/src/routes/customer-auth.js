@@ -69,6 +69,13 @@ function publicCustomer(customer) {
 
 // CUSTOMER REGISTRATION
 router.post("/register", async (req, res) => {
+  console.log("[CUSTOMER REGISTER] Request received:", {
+    email: String(req.body?.email || "").trim().toLowerCase(),
+    hasName: Boolean(req.body?.name),
+    hasPhone: Boolean(req.body?.phone),
+    hasPassword: Boolean(req.body?.password)
+  });
+
   try {
     const name = String(req.body?.name || "").trim();
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -120,6 +127,10 @@ router.post("/register", async (req, res) => {
       VALUES (?, ?, ?, ?, 0, 0)
     `);
 
+    console.log("[CUSTOMER REGISTER] Creating customer:", {
+      email
+    });
+
     const customer = db.transaction(() => {
       const result = insertCustomer.run(
         name,
@@ -140,6 +151,10 @@ router.post("/register", async (req, res) => {
       `).get(result.lastInsertRowid);
     })();
 
+    console.log("[CUSTOMER REGISTER] Customer created:", {
+      customerId: customer.id,
+      email: customer.email
+    });
     const otp = generateEmailOtp();
     const otpHash = hashEmailOtp(otp);
     const expiresAt = createOtpExpiry();
@@ -166,11 +181,21 @@ router.post("/register", async (req, res) => {
       expiresAt
     );
 
+    console.log("[CUSTOMER REGISTER] OTP stored; sending email:", {
+      customerId: customer.id,
+      email
+    });
+
     try {
       await sendCustomerEmailOtp({
         to: email,
         customerName: name,
         otp
+      });
+
+      console.log("[CUSTOMER REGISTER] OTP email sent successfully:", {
+        customerId: customer.id,
+        email
       });
     } catch (emailError) {
       db.prepare(`
