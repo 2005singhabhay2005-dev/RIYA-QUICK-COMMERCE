@@ -349,6 +349,46 @@ const seed = db.transaction(() => {
 });
 
 seed();
+
+// ============================================================
+// RIYA QUICK COMMERCE - RIDERS FOUNDATION MIGRATION
+// Additive migration: existing rider data and orders are preserved.
+// ============================================================
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS riders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL UNIQUE,
+    email TEXT UNIQUE,
+    password_hash TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_riders_active
+    ON riders(is_active);
+`);
+
+const ordersColumnsForRider = db.prepare("PRAGMA table_info(orders)").all();
+
+const hasAssignedRiderColumn = ordersColumnsForRider.some(
+  (column) => column.name === "assigned_rider_id"
+);
+
+if (!hasAssignedRiderColumn) {
+  db.exec(`
+    ALTER TABLE orders
+    ADD COLUMN assigned_rider_id INTEGER
+    REFERENCES riders(id) ON DELETE SET NULL;
+  `);
+}
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_orders_assigned_rider
+    ON orders(assigned_rider_id);
+`);
 // ============================================================
 // RIYA QUICK COMMERCE - GPS FOUNDATION MIGRATION
 // Additive migration: existing data and tables are preserved.
@@ -419,5 +459,4 @@ runCustomerAdminSecurityMigration(db);
 runCustomerEmailVerificationMigration(db);
 
 export default db;
-
 
