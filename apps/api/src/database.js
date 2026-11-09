@@ -1,4 +1,5 @@
-﻿import { runHomepageCmsMigration } from "./migrations/homepage-cms.js";
+import { runHomepageCmsMigration } from "./migrations/homepage-cms.js";
+import { runCustomerFoundationMigration } from "./migrations/customer-foundation.js";
 import { runCustomerProfileMigration } from "./migrations/customer-profile.js";
 import { runCustomerAdminSecurityMigration } from "./migrations/customer-admin-security.js";
 import { runCustomerEmailVerificationMigration } from "./migrations/customer-email-verification.js";
@@ -453,10 +454,10 @@ console.log("[GPS] Additive GPS schema migration checked.");
 
 // Commerce Foundation - additive migration
 runCommerceFoundationMigration(db);
+runCustomerFoundationMigration(db);
 runCustomerProfileMigration(db);
 runHomepageCmsMigration(db);
 runCustomerAdminSecurityMigration(db);
 runCustomerEmailVerificationMigration(db);
 
 export default db;
-
