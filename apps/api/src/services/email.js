@@ -1,13 +1,14 @@
-﻿import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
-const smtpPort = Number(process.env.SMTP_PORT || 465);
+const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpSecure =
   String(process.env.SMTP_SECURE || "true").toLowerCase() === "true";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: smtpPort,
-  secure: smtpSecure,
+  secure: false,
+  requireTLS: true,
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
