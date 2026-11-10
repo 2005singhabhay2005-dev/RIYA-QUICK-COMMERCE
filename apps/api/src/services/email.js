@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+﻿import nodemailer from "nodemailer";
 
 const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpSecure =
@@ -7,8 +7,8 @@ const smtpSecure =
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: smtpPort,
-  secure: false,
-  requireTLS: true,
+  secure: smtpSecure,
+  requireTLS: !smtpSecure,
   connectionTimeout: 10000,
   greetingTimeout: 10000,
   socketTimeout: 15000,
@@ -16,6 +16,15 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
   }
+});
+
+console.log("[SMTP CONFIG] Loaded:", {
+  host: process.env.SMTP_HOST,
+  port: smtpPort,
+  secure: smtpSecure,
+  requireTLS: !smtpSecure,
+  user: maskEmail(process.env.SMTP_USER),
+  from: maskEmail(process.env.SMTP_FROM || process.env.SMTP_USER)
 });
 
 function getFromAddress() {
@@ -110,3 +119,4 @@ export async function sendCustomerEmailOtp({
     throw error;
   }
 }
+
