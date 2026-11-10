@@ -1,34 +1,9 @@
-﻿import nodemailer from "nodemailer";
+﻿import { Resend } from "resend";
 
-const smtpPort = Number(process.env.SMTP_PORT || 587);
-const smtpSecure =
-  String(process.env.SMTP_SECURE || "true").toLowerCase() === "true";
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: smtpPort,
-  secure: smtpSecure,
-  requireTLS: !smtpSecure,
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
-
-console.log("[SMTP CONFIG] Loaded:", {
-  host: process.env.SMTP_HOST,
-  port: smtpPort,
-  secure: smtpSecure,
-  requireTLS: !smtpSecure,
-  user: maskEmail(process.env.SMTP_USER),
-  from: maskEmail(process.env.SMTP_FROM || process.env.SMTP_USER)
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 function getFromAddress() {
-  return process.env.SMTP_FROM || process.env.SMTP_USER;
+  return process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
 }
 
 function maskEmail(email) {
@@ -50,23 +25,25 @@ export async function sendCustomerEmailOtp({
   customerName,
   otp
 }) {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    throw new Error("SMTP credentials are not configured");
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not configured");
   }
 
-  console.log("[SMTP] Sending customer OTP email:", {
-    host: process.env.SMTP_HOST,
-    port: smtpPort,
-    secure: smtpSecure,
-    user: maskEmail(process.env.SMTP_USER),
-    from: maskEmail(getFromAddress()),
+  const from = getFromAddress();
+
+  if (!from) {
+    throw new Error("RESEND_FROM is not configured");
+  }
+
+  console.log("[RESEND] Sending customer OTP email:", {
+    from: maskEmail(from),
     to: maskEmail(to)
   });
 
   try {
-    await transporter.sendMail({
-      from: getFromAddress(),
-      to,
+    const { data, error } = await resend.emails.send({
+      from,
+      to: [to],
       subject: "Verify your Riya Solar account",
       text: [
         `Hello ${customerName},`,
@@ -106,17 +83,31 @@ export async function sendCustomerEmailOtp({
         </div>
       `
     });
+
+    if (error) {
+      console.error("[RESEND] Customer OTP email failed:", {
+        name: error?.name,
+        message: error?.message,
+        statusCode: error?.statusCode,
+        error
+      });
+
+      throw new Error(error.message || "Resend email delivery failed");
+    }
+
+    console.log("[RESEND] Customer OTP email sent:", {
+      id: data?.id || null,
+      to: maskEmail(to)
+    });
+
+    return data;
   } catch (error) {
-    console.error("[SMTP] Customer OTP email failed:", {
+    console.error("[RESEND] Customer OTP email failed:", {
       name: error?.name,
       message: error?.message,
-      code: error?.code,
-      command: error?.command,
-      responseCode: error?.responseCode,
-      response: error?.response
+      statusCode: error?.statusCode
     });
 
     throw error;
   }
 }
-
